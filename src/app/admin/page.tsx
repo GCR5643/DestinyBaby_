@@ -10,6 +10,7 @@ const ADMIN_SECTIONS = [
   { href: '/admin/community', title: '커뮤니티 관리', emoji: '💬', desc: '게시물/댓글 모더레이션' },
   { href: '/admin/users', title: '회원 관리', emoji: '👥', desc: '회원 정보/크레딧 관리' },
   { href: '/admin/stats', title: '통계', emoji: '📊', desc: '매출/활성유저/뽑기 통계' },
+  { href: '/admin/popularity', title: '유행지수 관리', emoji: '📊', desc: '가중치 · KOSIS 연동' },
 ];
 
 const MOCK_STATS = [

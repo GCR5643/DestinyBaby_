@@ -6,64 +6,45 @@ import { reviewName } from '@/lib/naming/name-reviewer';
 import { generateTaemyeong } from '@/lib/naming/taemyeong-generator';
 import { generateEnglishNames } from '@/lib/naming/english-name-generator';
 import { calculateSaju } from '@/lib/saju/saju-calculator';
+import { fetchKosisNameStats, getNationalTrendPercent, NATIONAL_NAME_STATS_2023 } from '@/lib/naming/kosis-popularity';
 
 interface PopularityData {
-  recentCount: number;
+  recentCount: number;      // 가중 합산 표시용 (국가 기준)
+  nationalCount: number;    // 국가 통계 건수
+  serviceCount30d: number;  // 서비스 내 30일 선택 수
+  compositeScore: number;   // 0~100 정규화 유행지수
   trend: 'rising' | 'stable' | 'falling' | 'new';
   trendPercent: number;
   rank: number;
+  source: 'kosis+service' | 'kosis' | 'mock';
 }
 
-// 인기 한국 이름 시드 데이터 (최근 30일 기준 등록 건수 mock)
-const MOCK_POPULARITY: Record<string, { count: number; trend: 'rising' | 'stable' | 'falling' | 'new' }> = {
-  '지우': { count: 847, trend: 'rising' },
-  '서연': { count: 1203, trend: 'stable' },
-  '하준': { count: 2341, trend: 'rising' },
-  '유나': { count: 612, trend: 'falling' },
-  '민준': { count: 1876, trend: 'stable' },
-  '서준': { count: 1654, trend: 'rising' },
-  '아린': { count: 423, trend: 'rising' },
-  '채원': { count: 734, trend: 'stable' },
-  '도윤': { count: 891, trend: 'stable' },
-  '시우': { count: 567, trend: 'rising' },
-  '예린': { count: 489, trend: 'falling' },
-  '지호': { count: 1102, trend: 'stable' },
-  '수아': { count: 321, trend: 'rising' },
-  '태양': { count: 198, trend: 'new' },
-  '나은': { count: 876, trend: 'stable' },
-  '은서': { count: 743, trend: 'falling' },
-  '규민': { count: 234, trend: 'new' },
-  '하은': { count: 1456, trend: 'stable' },
-  '지안': { count: 678, trend: 'rising' },
-  '민서': { count: 1089, trend: 'stable' },
-  '온': { count: 89, trend: 'new' },
-  '율': { count: 156, trend: 'rising' },
-  '빛': { count: 43, trend: 'new' },
-  '결': { count: 67, trend: 'new' },
-  '찬': { count: 312, trend: 'stable' },
-  '솔': { count: 234, trend: 'stable' },
-  '도': { count: 178, trend: 'falling' },
-  '현': { count: 567, trend: 'stable' },
-  '란': { count: 123, trend: 'falling' },
-  '희': { count: 289, trend: 'falling' },
-};
+/**
+ * 가중 유행지수 계산
+ * @param nationalCount 통계청 연간 등록 건수
+ * @param serviceCount  서비스 내 최근 30일 최종선택 수
+ * @param totalServiceSelections 서비스 전체 최종선택 수 (cold start 보정용)
+ * @param maxNational 전체 이름 중 최대 국가 등록 수
+ * @param maxService  전체 이름 중 최대 서비스 선택 수
+ */
+function computeCompositeScore(
+  nationalCount: number,
+  serviceCount: number,
+  totalServiceSelections: number,
+  maxNational: number,
+  maxService: number,
+): { score: number; wNational: number; wService: number } {
+  // Cold start 보정: 서비스 데이터 희박할수록 국가 통계 비중 높임
+  const wService = totalServiceSelections < 100 ? 0.15
+    : totalServiceSelections < 1000 ? 0.30
+    : 0.40;
+  const wNational = 1 - wService;
 
-function getMockPopularity(names: string[]): Record<string, PopularityData> {
-  const all = Object.values(MOCK_POPULARITY).map(v => v.count).sort((a, b) => b - a);
-  const result: Record<string, PopularityData> = {};
-  for (const name of names) {
-    const seed = MOCK_POPULARITY[name];
-    // 모르는 이름은 랜덤 seed
-    const count = seed?.count ?? Math.floor(Math.random() * 200 + 10);
-    const trend = seed?.trend ?? 'new';
-    const rank = all.indexOf(count) + 1 || all.length + 1;
-    const trendPercent = trend === 'rising' ? Math.floor(Math.random() * 40 + 15)
-      : trend === 'falling' ? -(Math.floor(Math.random() * 30 + 10))
-      : trend === 'new' ? 100
-      : Math.floor(Math.random() * 10 - 5);
-    result[name] = { recentCount: count, trend, trendPercent, rank };
-  }
-  return result;
+  const nNorm = maxNational > 0 ? nationalCount / maxNational : 0;
+  const sNorm = maxService > 0 ? serviceCount / maxService : 0;
+
+  const score = Math.round((nNorm * wNational + sNorm * wService) * 100);
+  return { score, wNational, wService };
 }
 
 export const namingRouter = createTRPCRouter({
@@ -235,42 +216,103 @@ export const namingRouter = createTRPCRouter({
   getNamePopularity: publicProcedure
     .input(z.object({ names: z.array(z.string()) }))
     .query(async ({ ctx, input }) => {
-      // 실제 DB 쿼리 시도 (graceful fallback)
+      // 1. 통계청 KOSIS 데이터 로드
+      const kosisStats = await fetchKosisNameStats().catch(() => NATIONAL_NAME_STATS_2023);
+      const maxNational = Math.max(...kosisStats.map(s => s.count), 1);
+      const kosisMap = new Map(kosisStats.map(s => [s.name, s]));
+
+      // 2. 서비스 DB 30일 선택 수 조회
+      const serviceMap = new Map<string, { recent: number; prev: number }>();
+      let totalServiceSelections = 0;
+
       try {
         const thirtyDaysAgo = new Date();
         thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
         const sixtyDaysAgo = new Date();
         sixtyDaysAgo.setDate(sixtyDaysAgo.getDate() - 60);
 
-        const { data: recentRows } = await ctx.supabase
+        const { data: rows } = await ctx.supabase
           .from('naming_reports')
           .select('selected_name, created_at')
-          .in('selected_name', input.names);
+          .gte('created_at', sixtyDaysAgo.toISOString());
 
-        if (recentRows && recentRows.length > 0) {
-          const result: Record<string, PopularityData> = {};
+        if (rows) {
+          totalServiceSelections = rows.filter(r =>
+            new Date(r.created_at) >= thirtyDaysAgo
+          ).length;
+
           for (const name of input.names) {
-            const recent = recentRows.filter(r =>
+            const recent = rows.filter(r =>
               r.selected_name === name && new Date(r.created_at) >= thirtyDaysAgo
             ).length;
-            const prev = recentRows.filter(r =>
+            const prev = rows.filter(r =>
               r.selected_name === name &&
               new Date(r.created_at) >= sixtyDaysAgo &&
               new Date(r.created_at) < thirtyDaysAgo
             ).length;
-            const trendPercent = prev === 0 ? (recent > 0 ? 100 : 0) : Math.round(((recent - prev) / prev) * 100);
-            result[name] = {
-              recentCount: recent,
-              trend: trendPercent >= 20 ? 'rising' : trendPercent <= -20 ? 'falling' : recent === 0 ? 'new' : 'stable',
-              trendPercent,
-              rank: 0,
-            };
+            serviceMap.set(name, { recent, prev });
           }
-          return result;
         }
-      } catch (_) { /* fallback below */ }
+      } catch (_) {
+        // DB 없으면 serviceMap 비워둠
+      }
 
-      // Fallback: mock seed data (실제 DB 없을 때)
-      return getMockPopularity(input.names);
+      const maxService = Math.max(...Array.from(serviceMap.values()).map(v => v.recent), 1);
+
+      // 3. 각 이름별 가중 점수 계산
+      const result: Record<string, PopularityData> = {};
+
+      for (const name of input.names) {
+        const kosisStat = kosisMap.get(name);
+        const nationalCount = kosisStat?.count ?? 0;
+        const nationalRank = kosisStat?.rank ?? 999;
+        const svc = serviceMap.get(name) ?? { recent: 0, prev: 0 };
+
+        const { score } = computeCompositeScore(
+          nationalCount, svc.recent, totalServiceSelections, maxNational, maxService
+        );
+
+        // 트렌드: 서비스 데이터 우선, 없으면 KOSIS 전년 대비
+        let trendPercent: number;
+        let trend: PopularityData['trend'];
+
+        if (svc.recent > 0 || svc.prev > 0) {
+          trendPercent = svc.prev === 0
+            ? (svc.recent > 0 ? 100 : 0)
+            : Math.round(((svc.recent - svc.prev) / svc.prev) * 100);
+        } else {
+          trendPercent = getNationalTrendPercent(name);
+        }
+
+        if (nationalCount === 0 && svc.recent === 0) {
+          trend = 'new';
+        } else if (trendPercent >= 20) {
+          trend = 'rising';
+        } else if (trendPercent <= -20) {
+          trend = 'falling';
+        } else {
+          trend = 'stable';
+        }
+
+        // recentCount: 국가 통계 월 환산 (연간 / 12)
+        const recentCount = nationalCount > 0
+          ? Math.round(nationalCount / 12)
+          : svc.recent > 0 ? svc.recent * 100 : 0; // 서비스만 있으면 추정치
+
+        result[name] = {
+          recentCount,
+          nationalCount,
+          serviceCount30d: svc.recent,
+          compositeScore: score,
+          trend,
+          trendPercent,
+          rank: nationalRank,
+          source: nationalCount > 0
+            ? (svc.recent > 0 ? 'kosis+service' : 'kosis')
+            : 'mock',
+        };
+      }
+
+      return result;
     }),
 });
