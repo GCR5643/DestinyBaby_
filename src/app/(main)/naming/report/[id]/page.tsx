@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { CreditCard, Stars } from 'lucide-react';
 import type { NamingReport } from '@/types';
+import { trpc } from '@/lib/trpc/client';
 
 function ScoreCircle({ score, label }: { score: number; label: string }) {
   const circumference = 2 * Math.PI * 36;
@@ -111,6 +112,12 @@ export default function NamingReportPage({ params }: { params: { id: string } })
   const hanja = searchParams.get('hanja') || '智宇';
   const [isPurchased, setIsPurchased] = useState(false);
   const [isPurchasing, setIsPurchasing] = useState(false);
+
+  const popularityQuery = trpc.naming.getNamePopularity.useQuery(
+    { names: [name] },
+    { enabled: !!name }
+  );
+  const popularity = popularityQuery.data?.[name];
 
   const mockReport: NamingReport = {
     name, hanja,
@@ -271,6 +278,63 @@ export default function NamingReportPage({ params }: { params: { id: string } })
             ))}
           </div>
         </motion.div>
+
+        {/* 유행지수 */}
+        {popularity && (
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.22 }}
+            className="bg-white rounded-2xl p-5 shadow-md"
+          >
+            <h2 className="font-bold text-gray-800 mb-3">📊 이름 유행지수</h2>
+            <div className="flex items-center gap-4 mb-3">
+              <div className="flex-1">
+                <div className="flex items-baseline gap-1.5 mb-1">
+                  <span className="text-3xl font-black text-primary-600">
+                    {popularity.recentCount.toLocaleString()}
+                  </span>
+                  <span className="text-sm text-gray-500">명 / 이번 달</span>
+                </div>
+                <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                  <motion.div
+                    initial={{ width: 0 }}
+                    animate={{ width: `${Math.min(100, (popularity.recentCount / 2500) * 100)}%` }}
+                    transition={{ duration: 1, ease: 'easeOut' }}
+                    className={`h-full rounded-full ${
+                      popularity.trend === 'rising' ? 'bg-rose-400' :
+                      popularity.trend === 'falling' ? 'bg-blue-300' :
+                      popularity.trend === 'new' ? 'bg-violet-400' : 'bg-primary-400'
+                    }`}
+                  />
+                </div>
+              </div>
+              <div className={`px-3 py-2 rounded-2xl text-center min-w-16 ${
+                popularity.trend === 'rising' ? 'bg-rose-50 text-rose-600' :
+                popularity.trend === 'falling' ? 'bg-blue-50 text-blue-500' :
+                popularity.trend === 'new' ? 'bg-violet-50 text-violet-600' : 'bg-gray-50 text-gray-600'
+              }`}>
+                <div className="text-xl">
+                  {popularity.trend === 'rising' ? '🔥' :
+                   popularity.trend === 'falling' ? '↓' :
+                   popularity.trend === 'new' ? '✨' : '→'}
+                </div>
+                <div className="text-xs font-semibold mt-0.5">
+                  {popularity.trend === 'rising' ? '인기 상승' :
+                   popularity.trend === 'falling' ? '감소중' :
+                   popularity.trend === 'new' ? '신규 트렌드' : '안정적'}
+                </div>
+              </div>
+            </div>
+            <p className="text-xs text-gray-500 leading-relaxed bg-gray-50 rounded-xl p-3">
+              {popularity.trend === 'rising'
+                ? `"${name}"은 요즘 부모님들 사이에서 인기가 빠르게 오르고 있는 이름이에요. 트렌디하면서도 의미 있는 이름을 원하는 분들이 많이 선택하고 있어요.`
+                : popularity.trend === 'new'
+                ? `"${name}"은 최근에 주목받기 시작한 신선한 이름이에요. 개성 있는 이름을 원하신다면 좋은 선택이 될 수 있어요.`
+                : popularity.trend === 'falling'
+                ? `"${name}"은 다소 클래식한 분위기의 이름이에요. 유행을 타지 않는 이름을 원하신다면 오히려 장점이 될 수 있어요.`
+                : `"${name}"은 꾸준히 사랑받는 안정적인 이름이에요. 너무 흔하지도, 너무 낯설지도 않아 균형감이 좋아요.`
+              }
+            </p>
+          </motion.div>
+        )}
 
         {/* 5. 오행 인생 추천 */}
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }} className="bg-white rounded-2xl p-6 shadow-md">

@@ -8,6 +8,7 @@ import type { SuggestedName, Element } from '@/types';
 import { getElementColor } from '@/lib/utils';
 import { DemoBanner } from '@/components/naming/DemoBanner';
 import { cn } from '@/lib/utils';
+import { trpc } from '@/lib/trpc/client';
 
 // ── Mock data pool ────────────────────────────────────────────────────────────
 
@@ -63,6 +64,34 @@ const ALL_NAMES: Record<'1' | '2' | '3', SuggestedName[]> = {
 
 type LengthFilter = '1' | '2' | '3';
 
+// ── Popularity types & helpers ─────────────────────────────────────────────
+
+interface PopularityInfo {
+  recentCount: number;
+  trend: 'rising' | 'stable' | 'falling' | 'new';
+  trendPercent: number;
+}
+
+function TrendBadge({ info }: { info: PopularityInfo | undefined }) {
+  if (!info) return null;
+  const { recentCount, trend, trendPercent } = info;
+  const config = {
+    rising:  { icon: '🔥', label: '인기 상승', bg: 'bg-rose-50',   text: 'text-rose-600',   border: 'border-rose-200' },
+    stable:  { icon: '→',  label: '안정적',   bg: 'bg-gray-50',   text: 'text-gray-500',   border: 'border-gray-200' },
+    falling: { icon: '↓',  label: '감소중',   bg: 'bg-blue-50',   text: 'text-blue-400',   border: 'border-blue-200' },
+    new:     { icon: '✨', label: '신규',     bg: 'bg-violet-50', text: 'text-violet-600', border: 'border-violet-200' },
+  }[trend];
+  return (
+    <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-xs font-medium ${config.bg} ${config.text} ${config.border}`}>
+      <span>{config.icon}</span>
+      <span>이번 달 {recentCount.toLocaleString()}명</span>
+      {trend !== 'stable' && trend !== 'new' && (
+        <span className="opacity-70">({trendPercent > 0 ? '+' : ''}{trendPercent}%)</span>
+      )}
+    </div>
+  );
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function shuffle<T>(arr: T[]): T[] {
@@ -80,11 +109,12 @@ interface NameCardProps {
   name: SuggestedName;
   index: number;
   isCandidate: boolean;
+  popularity: PopularityInfo | undefined;
   onAddCandidate: (name: SuggestedName) => void;
   onVoice: (name: string) => void;
 }
 
-function NameCard({ name, index, isCandidate, onAddCandidate, onVoice }: NameCardProps) {
+function NameCard({ name, index, isCandidate, popularity, onAddCandidate, onVoice }: NameCardProps) {
   const elementColor = getElementColor(name.element || 'wood');
 
   return (
@@ -106,6 +136,9 @@ function NameCard({ name, index, isCandidate, onAddCandidate, onVoice }: NameCar
           <div className="text-right">
             <div className="text-2xl font-bold" style={{ color: elementColor }}>{name.sajuScore}</div>
             <div className="text-xs text-gray-400">사주 적합도</div>
+            <div className="mt-1.5">
+              <TrendBadge info={popularity} />
+            </div>
           </div>
         </div>
 
@@ -165,6 +198,18 @@ export default function NamingResultPage({ params }: { params: { id: string } })
   const [toast, setToast] = useState('');
   const [showFinalModal, setShowFinalModal] = useState(false);
   const [finalName, setFinalName] = useState<SuggestedName | null>(null);
+  const [popularityMap, setPopularityMap] = useState<Record<string, PopularityInfo>>({});
+
+  const popularityQuery = trpc.naming.getNamePopularity.useQuery(
+    { names: displayed.map(n => n.name) },
+    { enabled: displayed.length > 0 }
+  );
+
+  useEffect(() => {
+    if (popularityQuery.data) {
+      setPopularityMap(prev => ({ ...prev, ...popularityQuery.data }));
+    }
+  }, [popularityQuery.data]);
 
   // Build shuffled pool whenever filter changes
   useEffect(() => {
@@ -273,6 +318,7 @@ export default function NamingResultPage({ params }: { params: { id: string } })
                 name={name}
                 index={i}
                 isCandidate={candidates.some(c => c.name === name.name)}
+                popularity={popularityMap[name.name]}
                 onAddCandidate={handleAddCandidate}
                 onVoice={handleVoice}
               />
