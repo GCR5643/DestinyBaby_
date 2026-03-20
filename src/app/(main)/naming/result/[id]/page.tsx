@@ -163,6 +163,8 @@ export default function NamingResultPage({ params }: { params: { id: string } })
   const [displayed, setDisplayed] = useState<SuggestedName[]>([]);
   const [candidates, setCandidates] = useState<SuggestedName[]>([]);
   const [toast, setToast] = useState('');
+  const [showFinalModal, setShowFinalModal] = useState(false);
+  const [finalName, setFinalName] = useState<SuggestedName | null>(null);
 
   // Build shuffled pool whenever filter changes
   useEffect(() => {
@@ -336,6 +338,19 @@ export default function NamingResultPage({ params }: { params: { id: string } })
           >
             🗳️ 공유하고 투표받기
           </button>
+
+          <button
+            onClick={() => setShowFinalModal(true)}
+            disabled={candidates.length === 0}
+            className={cn(
+              'w-full py-3.5 rounded-2xl font-bold text-sm transition-colors mt-2',
+              candidates.length > 0
+                ? 'bg-gradient-to-r from-primary-500 to-primary-400 text-white shadow-lg'
+                : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+            )}
+          >
+            ✅ 이름 최종 선택하기
+          </button>
         </div>
 
         {/* Bottom nav */}
@@ -347,6 +362,52 @@ export default function NamingResultPage({ params }: { params: { id: string } })
           다시 추천받기
         </button>
       </div>
+
+      {/* Final Name Modal */}
+      <AnimatePresence>
+        {showFinalModal && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-black/50 z-40"
+              onClick={() => setShowFinalModal(false)}
+            />
+            <motion.div
+              initial={{ opacity: 0, y: 60 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 60 }}
+              className="fixed bottom-0 left-0 right-0 bg-white rounded-t-3xl z-50 p-6 max-h-[80vh] overflow-y-auto"
+            >
+              <div className="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-4" />
+              <h2 className="text-lg font-black text-gray-800 mb-1">✨ 최종 이름을 선택해주세요</h2>
+              <p className="text-sm text-gray-400 mb-4">선택한 이름으로 사주 보고서를 생성합니다</p>
+              <div className="space-y-3">
+                {candidates.map(c => (
+                  <button
+                    key={c.name}
+                    onClick={() => {
+                      setFinalName(c);
+                      setShowFinalModal(false);
+                      router.push(`/naming/report/${params.id}?name=${encodeURIComponent(c.name)}&hanja=${encodeURIComponent(c.hanja)}&final=true`);
+                    }}
+                    className={cn(
+                      'w-full flex items-center gap-4 p-4 rounded-2xl border-2 transition-all text-left',
+                      finalName?.name === c.name
+                        ? 'border-primary-400 bg-primary-50'
+                        : 'border-gray-100 hover:border-primary-200'
+                    )}
+                  >
+                    <div className="text-3xl font-black text-primary-700">{c.name}</div>
+                    <div className="flex-1">
+                      <div className="text-gray-400 text-sm">{c.hanja}</div>
+                      <div className="text-xs text-gray-500 mt-0.5">{c.reasonShort}</div>
+                    </div>
+                    <div className="text-primary-600 font-bold text-lg">{c.sajuScore}점</div>
+                  </button>
+                ))}
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
 
       {/* Toast */}
       <AnimatePresence>

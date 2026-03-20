@@ -3,9 +3,8 @@
 import { useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { motion } from 'framer-motion';
-import { Download, Share2, CreditCard, Stars, Volume2 } from 'lucide-react';
+import { CreditCard, Stars } from 'lucide-react';
 import type { NamingReport } from '@/types';
-import { cn } from '@/lib/utils';
 
 function ScoreCircle({ score, label }: { score: number; label: string }) {
   const circumference = 2 * Math.PI * 36;
@@ -36,6 +35,75 @@ function ScoreCircle({ score, label }: { score: number; label: string }) {
   );
 }
 
+const ELEMENT_RECOMMENDATIONS: Record<string, {
+  colors: string[];
+  colorDesc: string;
+  nature: string;
+  natureDesc: string;
+  travel: string[];
+  travelDesc: string;
+  season: string;
+  seasonDesc: string;
+}> = {
+  water: {
+    colors: ['네이비', '인디고', '청록', '딥블루'],
+    colorDesc: '물의 기운을 담은 깊고 차분한 색감',
+    nature: '바다 · 강 · 호수',
+    natureDesc: '물가 가까이서 에너지를 충전해요',
+    travel: ['제주도 해변', '동해 바다', '노르웨이 피오르드'],
+    travelDesc: '물의 기운이 풍부한 곳에서 크게 성장해요',
+    season: '겨울',
+    seasonDesc: '고요하고 깊은 겨울 에너지와 잘 맞아요',
+  },
+  wood: {
+    colors: ['초록', '민트', '연두', '올리브'],
+    colorDesc: '생명력 넘치는 자연의 초록 계열',
+    nature: '숲 · 공원 · 정원',
+    natureDesc: '나무와 풀 가까이서 맑은 기운을 얻어요',
+    travel: ['제주 숲길', '뉴질랜드', '캐나다 록키'],
+    travelDesc: '울창한 숲과 자연이 있는 곳이 최고예요',
+    season: '봄',
+    seasonDesc: '새싹이 돋는 봄에 가장 빛나요',
+  },
+  fire: {
+    colors: ['레드', '오렌지', '코랄', '버건디'],
+    colorDesc: '열정과 활력을 북돋는 따뜻한 색감',
+    nature: '햇살 · 양지 · 고원',
+    natureDesc: '햇볕이 잘 드는 밝은 공간에서 에너지가 솟아요',
+    travel: ['스페인 바르셀로나', '그리스 산토리니', '제주 오름'],
+    travelDesc: '햇살 가득한 남유럽과 지중해가 잘 맞아요',
+    season: '여름',
+    seasonDesc: '뜨거운 여름이 에너지를 가장 높여줘요',
+  },
+  earth: {
+    colors: ['베이지', '카키', '갈색', '테라코타'],
+    colorDesc: '안정감과 포근함을 주는 대지의 색',
+    nature: '산 · 들판 · 고원',
+    natureDesc: '넓은 대지와 산에서 든든한 기운을 얻어요',
+    travel: ['경주', '전주 한옥마을', '스위스 알프스'],
+    travelDesc: '유서 깊은 땅과 웅장한 산이 잘 맞아요',
+    season: '환절기 (봄끝·여름끝)',
+    seasonDesc: '계절이 바뀌는 사이 특별한 기운이 생겨요',
+  },
+  metal: {
+    colors: ['화이트', '실버', '라이트그레이', '골드'],
+    colorDesc: '깔끔하고 세련된 메탈릭 · 무채색 계열',
+    nature: '바위산 · 고산 · 도심',
+    natureDesc: '높은 곳에서 맑은 공기와 함께 에너지를 얻어요',
+    travel: ['일본 교토', '스위스 융프라우', '아이슬란드'],
+    travelDesc: '서늘하고 깨끗한 북쪽 나라가 잘 맞아요',
+    season: '가을',
+    seasonDesc: '선선한 가을 하늘 아래서 가장 빛나요',
+  },
+};
+
+const milestones = [
+  { age: '유아기 (0~7세)', icon: '🌱', title: '씨앗이 싹트는 시기', desc: '호기심 가득한 눈으로 세상을 탐험해요. 자유롭게 뛰어놀고 상상력을 마음껏 펼쳐주세요.' },
+  { age: '학창시절 (8~18세)', icon: '📚', title: '뿌리를 내리는 시기', desc: '재능이 서서히 드러나는 시기예요. 한 가지 분야에 깊이 빠져보는 경험이 평생의 강점이 됩니다.' },
+  { age: '청년기 (19~30세)', icon: '🌿', title: '가지를 뻗는 시기', desc: '세상과 적극적으로 만나는 황금기예요. 두려움 없이 도전하면 운이 활짝 열립니다.' },
+  { age: '장년기 (31~50세)', icon: '🌳', title: '꽃이 피는 시기', desc: '쌓아온 경험이 빛을 발하는 시기예요. 주변에 든든한 나무가 되어줄 운명입니다.' },
+];
+
 export default function NamingReportPage({ params }: { params: { id: string } }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -50,13 +118,27 @@ export default function NamingReportPage({ params }: { params: { id: string } })
     yinYangFiveElements: { elements: ['water', 'wood'], balance: '균형잡힌', recommendation: '오행이 조화롭게 배합되어 있습니다' },
     pronunciationAnalysis: { harmony: 92, initialConsonants: ['ㅈ', 'ㅇ'], comment: '자음과 모음의 조화가 훌륭합니다. 부르기 쉽고 듣기 좋은 이름입니다.' },
     meaningBreakdown: [
-      { char: '지', hanja: '智', meaning: '지혜로울 지 — 총명하고 지혜로운 사람이 됩니다' },
-      { char: '우', hanja: '宇', meaning: '집 우 — 드넓은 세상을 품는 큰 사람이 됩니다' },
+      { char: name[0] ?? '지', hanja: hanja[0] ?? '智', meaning: '지혜로울 지 — 총명하고 지혜로운 사람이 됩니다' },
+      { char: name[1] ?? '우', hanja: hanja[1] ?? '宇', meaning: '집 우 — 드넓은 세상을 품는 큰 사람이 됩니다' },
     ],
     sajuFitScore: 92,
     parentCompatibility: { mom: 88, dad: 91, combined: 90 },
-    overallComment: '"지우"는 아이의 사주에 완벽하게 어울리는 이름입니다. 지혜와 넓은 마음을 가진 사람으로 성장할 것입니다. 부모님의 기운과도 매우 잘 어울려, 가족 전체가 행복하고 건강한 삶을 누릴 것으로 보입니다.',
+    overallComment: `"${name}"는 아이의 사주에 완벽하게 어울리는 이름입니다. 지혜와 넓은 마음을 가진 사람으로 성장할 것입니다. 부모님의 기운과도 매우 잘 어울려, 가족 전체가 행복하고 건강한 삶을 누릴 것으로 보입니다.`,
   };
+
+  const mainElement = (mockReport.yinYangFiveElements.elements[0] ?? 'water') as string;
+  const elemRec = ELEMENT_RECOMMENDATIONS[mainElement] ?? ELEMENT_RECOMMENDATIONS.water;
+
+  const elementDescMap: Record<string, string> = {
+    water: '지혜롭고 깊은 통찰력',
+    wood: '생명력 넘치는 따뜻한 마음',
+    fire: '밝고 열정적인 에너지',
+    earth: '든든하고 믿음직한 기운',
+    metal: '날카롭고 순수한 감성',
+  };
+  const elementDesc = elementDescMap[mainElement] ?? '아름다운 기운';
+
+  const blessingMessage = `사랑스러운 ${name}이(가) 이 세상에 태어나 주어 감사해요. ${name}의 사주는 ${elementDesc}을 품고 있어요. 부모님의 사랑을 듬뿍 받으며, 자신만의 아름다운 길을 걸어갈 거예요. ✨`;
 
   const handlePurchase = async () => {
     setIsPurchasing(true);
@@ -75,15 +157,14 @@ export default function NamingReportPage({ params }: { params: { id: string } })
         </div>
 
         <div className="max-w-lg mx-auto px-4 mt-6">
-          {/* Preview */}
           <div className="bg-white rounded-2xl p-6 shadow-md relative overflow-hidden">
             <div className="absolute inset-0 flex items-center justify-center bg-white/80 backdrop-blur-sm z-10 rounded-2xl">
               <div className="text-center p-6">
                 <div className="text-4xl mb-4">🔒</div>
-                <h2 className="text-xl font-bold text-gray-800 mb-2">상세 리포트</h2>
+                <h2 className="text-xl font-bold text-gray-800 mb-2">사주 인생 보고서</h2>
                 <p className="text-gray-500 text-sm mb-6">
-                  획수 분석, 음양오행, 발음 분석, 사주 적합도,<br />
-                  부모 궁합까지 한번에!
+                  축복 메시지, 오행 인생 추천, 인생 이정표,<br />
+                  한자 풀이, 종합 작명 소견까지!
                 </p>
                 <button
                   onClick={handlePurchase}
@@ -93,7 +174,7 @@ export default function NamingReportPage({ params }: { params: { id: string } })
                   {isPurchasing ? (
                     <><div className="w-5 h-5 border-2 border-white/40 border-t-white rounded-full animate-spin" />결제 중...</>
                   ) : (
-                    <><CreditCard className="w-5 h-5" />1,000원으로 상세 리포트 보기</>
+                    <><CreditCard className="w-5 h-5" />📖 사주 인생 보고서 보기 — 3,000원</>
                   )}
                 </button>
                 <p className="text-xs text-gray-400 mt-2">토스페이 · 네이버페이 · 카드 결제</p>
@@ -107,11 +188,11 @@ export default function NamingReportPage({ params }: { params: { id: string } })
                 <ScoreCircle score={91} label="아빠 궁합" />
               </div>
               <div className="bg-gray-50 rounded-xl p-4">
-                <h3 className="font-semibold text-gray-700 mb-2">획수 분석</h3>
-                <div className="grid grid-cols-3 gap-2 text-center">
-                  {['천격', '인격', '지격'].map(g => (
+                <h3 className="font-semibold text-gray-700 mb-2">오행 인생 추천</h3>
+                <div className="grid grid-cols-2 gap-2 text-center">
+                  {['행운의 색깔', '자연과의 친구', '여행지 추천', '행운의 계절'].map(g => (
                     <div key={g} className="bg-white rounded-lg p-2">
-                      <div className="text-lg font-bold text-primary-600">??</div>
+                      <div className="text-sm font-bold text-primary-600">??</div>
                       <div className="text-xs text-gray-400">{g}</div>
                     </div>
                   ))}
@@ -128,11 +209,12 @@ export default function NamingReportPage({ params }: { params: { id: string } })
     <div className="min-h-screen bg-ivory pb-24">
       <div className="bg-gradient-to-br from-primary-600 to-primary-400 pt-12 pb-8 px-4 text-white text-center">
         <h1 className="text-2xl font-bold mb-1">{name} ({hanja})</h1>
-        <p className="text-sm opacity-80">상세 이름 분석 리포트</p>
+        <p className="text-sm opacity-80">사주 인생 보고서</p>
       </div>
 
       <div className="max-w-lg mx-auto px-4 -mt-4 space-y-4">
-        {/* Scores */}
+
+        {/* 1. 종합 점수 */}
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="bg-white rounded-2xl p-6 shadow-md">
           <h2 className="font-bold text-gray-800 mb-4 flex items-center gap-2"><Stars className="w-5 h-5 text-gold-400" />종합 점수</h2>
           <div className="flex justify-around">
@@ -142,9 +224,18 @@ export default function NamingReportPage({ params }: { params: { id: string } })
           </div>
         </motion.div>
 
-        {/* Stroke Analysis */}
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="bg-white rounded-2xl p-6 shadow-md">
-          <h2 className="font-bold text-gray-800 mb-4">📊 획수 분석</h2>
+        {/* 2. 아이에게 보내는 축복 메시지 */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08 }}
+          className="rounded-2xl p-6 border border-rose-100 bg-gradient-to-br from-rose-50 to-primary-50"
+        >
+          <h2 className="font-bold text-gray-800 mb-3">✨ 아이에게 보내는 축복 메시지</h2>
+          <p className="text-gray-700 text-sm leading-relaxed">{blessingMessage}</p>
+        </motion.div>
+
+        {/* 3. 사주 팔자 요약 */}
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }} className="bg-white rounded-2xl p-6 shadow-md">
+          <h2 className="font-bold text-gray-800 mb-4">🔮 사주 팔자 요약</h2>
           <div className="grid grid-cols-3 gap-3 mb-3">
             {[
               { label: '천격', value: mockReport.strokeAnalysis.heavenGrade },
@@ -160,11 +251,14 @@ export default function NamingReportPage({ params }: { params: { id: string } })
               </div>
             ))}
           </div>
+          <div className="mt-2 bg-primary-50 rounded-xl p-3 text-sm text-primary-800">
+            {mockReport.yinYangFiveElements.recommendation}
+          </div>
         </motion.div>
 
-        {/* Meaning */}
+        {/* 4. 이름 한자 풀이 */}
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="bg-white rounded-2xl p-6 shadow-md">
-          <h2 className="font-bold text-gray-800 mb-4">🔤 한자 뜻풀이</h2>
+          <h2 className="font-bold text-gray-800 mb-4">📖 이름 한자 풀이</h2>
           <div className="space-y-3">
             {mockReport.meaningBreakdown.map((item, i) => (
               <div key={i} className="flex items-start gap-4 p-3 bg-gray-50 rounded-xl">
@@ -178,43 +272,103 @@ export default function NamingReportPage({ params }: { params: { id: string } })
           </div>
         </motion.div>
 
-        {/* Pronunciation */}
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="bg-white rounded-2xl p-6 shadow-md">
-          <h2 className="font-bold text-gray-800 mb-3">🎵 발음 분석</h2>
-          <div className="flex items-center gap-3 mb-3">
-            <div className="bg-primary-50 rounded-xl p-3 text-center">
-              <div className="text-2xl font-bold text-primary-600">{mockReport.pronunciationAnalysis.harmony}</div>
-              <div className="text-xs text-gray-500">조화 점수</div>
+        {/* 5. 오행 인생 추천 */}
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }} className="bg-white rounded-2xl p-6 shadow-md">
+          <h2 className="font-bold text-gray-800 mb-4">🎨 오행 인생 추천</h2>
+          <div className="grid grid-cols-1 gap-3">
+
+            {/* 행운의 색깔 */}
+            <div className="bg-rose-50 rounded-2xl p-4">
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-lg">🎨</span>
+                <span className="font-bold text-gray-800 text-sm">행운의 색깔</span>
+              </div>
+              <p className="text-xs text-gray-500 mb-2">{elemRec.colorDesc}</p>
+              <div className="flex flex-wrap gap-1.5">
+                {elemRec.colors.map(c => (
+                  <span key={c} className="px-2.5 py-1 bg-white rounded-full text-xs font-medium text-gray-700 shadow-sm">{c}</span>
+                ))}
+              </div>
             </div>
-            <p className="text-sm text-gray-600 flex-1">{mockReport.pronunciationAnalysis.comment}</p>
+
+            {/* 자연과의 친구 */}
+            <div className="bg-green-50 rounded-2xl p-4">
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-lg">🌿</span>
+                <span className="font-bold text-gray-800 text-sm">자연과의 친구</span>
+              </div>
+              <p className="text-sm font-semibold text-green-700 mb-1">{elemRec.nature}</p>
+              <p className="text-xs text-gray-500">{elemRec.natureDesc}</p>
+            </div>
+
+            {/* 여행지 추천 */}
+            <div className="bg-blue-50 rounded-2xl p-4">
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-lg">✈️</span>
+                <span className="font-bold text-gray-800 text-sm">여행지 추천</span>
+              </div>
+              <p className="text-xs text-gray-500 mb-2">{elemRec.travelDesc}</p>
+              <div className="flex flex-wrap gap-1.5">
+                {elemRec.travel.map(t => (
+                  <span key={t} className="px-2.5 py-1 bg-white rounded-full text-xs font-medium text-gray-700 shadow-sm">{t}</span>
+                ))}
+              </div>
+            </div>
+
+            {/* 행운의 계절 */}
+            <div className="bg-amber-50 rounded-2xl p-4">
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-lg">🍂</span>
+                <span className="font-bold text-gray-800 text-sm">행운의 계절</span>
+              </div>
+              <p className="text-sm font-semibold text-amber-700 mb-1">{elemRec.season}</p>
+              <p className="text-xs text-gray-500">{elemRec.seasonDesc}</p>
+            </div>
+
           </div>
         </motion.div>
 
-        {/* Overall Comment */}
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }} className="bg-gradient-to-br from-primary-50 to-secondary-50 rounded-2xl p-6 border border-primary-100">
-          <h2 className="font-bold text-gray-800 mb-3">✨ 종합 분석</h2>
+        {/* 6. 인생 이정표 */}
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="bg-white rounded-2xl p-6 shadow-md">
+          <h2 className="font-bold text-gray-800 mb-4">🌟 인생 이정표</h2>
+          <div className="space-y-3">
+            {milestones.map((m, i) => (
+              <div key={i} className="flex gap-4 p-4 bg-gray-50 rounded-2xl">
+                <div className="text-2xl">{m.icon}</div>
+                <div className="flex-1">
+                  <div className="text-xs text-primary-500 font-semibold mb-0.5">{m.age}</div>
+                  <div className="font-bold text-gray-800 text-sm mb-1">{m.title}</div>
+                  <p className="text-xs text-gray-500 leading-relaxed">{m.desc}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </motion.div>
+
+        {/* 7. 종합 작명 소견 */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }}
+          className="bg-gradient-to-br from-primary-50 to-secondary-50 rounded-2xl p-6 border border-primary-100"
+        >
+          <h2 className="font-bold text-gray-800 mb-3">💫 종합 작명 소견</h2>
           <p className="text-gray-700 text-sm leading-relaxed">{mockReport.overallComment}</p>
         </motion.div>
 
-        {/* Action buttons */}
-        <div className="grid grid-cols-2 gap-3">
-          <button className="flex items-center justify-center gap-2 py-3 rounded-2xl bg-gray-100 text-gray-700 text-sm font-medium">
-            <Download className="w-4 h-4" />PDF 저장
-          </button>
-          <button className="flex items-center justify-center gap-2 py-3 rounded-2xl bg-secondary-400 text-white text-sm font-medium">
-            <Share2 className="w-4 h-4" />SNS 공유
-          </button>
-        </div>
-
-        {/* Card Pull CTA */}
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }}>
+        {/* 8. 카드 뽑기 CTA */}
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}
+          className="bg-gradient-to-br from-purple-900 to-indigo-900 rounded-2xl p-6 text-center"
+        >
+          <div className="text-3xl mb-2">🃏</div>
+          <h3 className="text-white font-black text-lg mb-1">{name}의 운명 카드를 뽑아보세요</h3>
+          <p className="text-white/60 text-sm mb-4">사주로 결정되는 {name}만의 특별한 운명 카드</p>
           <button
             onClick={() => router.push('/cards')}
-            className="w-full bg-gradient-to-r from-purple-900 to-indigo-900 text-white py-4 rounded-2xl font-bold text-base shadow-lg"
+            className="w-full bg-white text-purple-900 py-3 rounded-2xl font-black"
           >
-            🃏 이 사주로 태어난 아이의 운명 카드를 뽑아보세요!
+            🎴 지금 바로 뽑기
           </button>
         </motion.div>
+
       </div>
     </div>
   );

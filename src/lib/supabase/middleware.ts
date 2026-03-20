@@ -30,10 +30,11 @@ export async function updateSession(request: NextRequest) {
   const isProtected = protectedPaths.some(p => request.nextUrl.pathname.startsWith(p));
 
   if (!user && isProtected) {
-    // Allow guests to access naming routes with the guest cookie
+    // Allow guests to access certain routes with the guest cookie
     const isGuest = request.cookies.get('destiny-baby-guest')?.value === 'true';
-    const isNaming = request.nextUrl.pathname.startsWith('/naming');
-    if (isGuest && isNaming) {
+    const guestAllowedPaths = ['/naming', '/cards', '/saju'];
+    const isGuestAllowed = guestAllowedPaths.some(p => request.nextUrl.pathname.startsWith(p));
+    if (isGuest && isGuestAllowed) {
       return supabaseResponse;
     }
     const url = request.nextUrl.clone();

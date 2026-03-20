@@ -23,10 +23,25 @@ interface NamingFormData {
   siblingNames: string;
 }
 
+function getHangryeolPreview(chars: string[], position: '앞' | '뒤' | '모름'): string {
+  if (chars.length === 0) return '';
+  const suffixes = ['서', '혁', '호', '아', '준', '민'];
+  const prefixes = ['하', '지', '서', '민', '수', '나'];
+  return chars.flatMap(c => {
+    if (position === '앞') return suffixes.slice(0, 3).map(s => `${c}${s}`);
+    if (position === '뒤') return prefixes.slice(0, 3).map(p => `${p}${c}`);
+    return [suffixes[0], prefixes[0]].map((x, i) => i === 0 ? `${c}${x}` : `${x}${c}`);
+  }).slice(0, 6).join(', ');
+}
+
 export default function NamingPage() {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
   const [isGuest, setIsGuest] = useState(false);
+  const [useHangryeol, setUseHangryeol] = useState(false);
+  const [hangryeolChars, setHangryeolChars] = useState<string[]>([]);
+  const [hangryeolInput, setHangryeolInput] = useState('');
+  const [hangryeolPosition, setHangryeolPosition] = useState<'앞' | '뒤' | '모름'>('뒤');
   const { register, handleSubmit, watch, control, formState: { errors } } = useForm<NamingFormData>({
     defaultValues: { gender: 'unknown' }
   });
@@ -51,7 +66,9 @@ export default function NamingPage() {
         babyBirthDate: data.babyBirthDate || undefined,
         babyBirthTime: data.babyBirthTime || undefined,
         gender: data.gender,
-        hangryeolChar: data.hangryeolChar || undefined,
+        hangryeolChar: useHangryeol && hangryeolChars.length > 0
+          ? `${hangryeolPosition}:${hangryeolChars.join(',')}`
+          : undefined,
         siblingNames: data.siblingNames ? data.siblingNames.split(',').map(s => s.trim()) : undefined,
       };
 
@@ -214,14 +231,105 @@ export default function NamingPage() {
                 추가 옵션 (항렬, 형제이름)
               </summary>
               <div className="mt-3 space-y-3 pl-5">
-                <div>
-                  <label className="text-xs text-gray-500 mb-1 block">항렬 글자</label>
-                  <input
-                    type="text"
-                    {...register('hangryeolChar')}
-                    placeholder="예: 준, 민"
-                    className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-primary-400"
-                  />
+                <div className="space-y-3">
+                  {/* 항렬 사용 여부 토글 */}
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs text-gray-500">항렬 글자 사용</label>
+                    <button
+                      type="button"
+                      onClick={() => setUseHangryeol(v => !v)}
+                      className={`w-11 h-6 rounded-full transition-colors relative ${
+                        useHangryeol ? 'bg-primary-400' : 'bg-gray-200'
+                      }`}
+                    >
+                      <span className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${
+                        useHangryeol ? 'translate-x-5' : 'translate-x-0.5'
+                      }`} />
+                    </button>
+                  </div>
+
+                  {useHangryeol && (
+                    <div className="space-y-3">
+                      {/* chip 입력 */}
+                      <div>
+                        <label className="text-xs text-gray-500 mb-1 block">항렬 글자 (최대 3개)</label>
+                        <div className="flex flex-wrap gap-1.5 mb-2">
+                          {hangryeolChars.map((c, i) => (
+                            <span key={i} className="flex items-center gap-1 bg-primary-50 border border-primary-200 text-primary-700 text-sm px-2 py-0.5 rounded-full">
+                              {c}
+                              <button
+                                type="button"
+                                onClick={() => setHangryeolChars(prev => prev.filter((_, idx) => idx !== i))}
+                                className="text-primary-400 hover:text-primary-700 font-bold leading-none"
+                              >×</button>
+                            </span>
+                          ))}
+                        </div>
+                        {hangryeolChars.length < 3 && (
+                          <div className="flex gap-2">
+                            <input
+                              type="text"
+                              value={hangryeolInput}
+                              onChange={e => setHangryeolInput(e.target.value)}
+                              onKeyDown={e => {
+                                if (e.key === 'Enter') {
+                                  e.preventDefault();
+                                  const v = hangryeolInput.trim();
+                                  if (v && !hangryeolChars.includes(v)) setHangryeolChars(prev => [...prev, v]);
+                                  setHangryeolInput('');
+                                }
+                              }}
+                              placeholder="글자 입력 후 Enter"
+                              className="flex-1 border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-primary-400"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const v = hangryeolInput.trim();
+                                if (v && !hangryeolChars.includes(v)) setHangryeolChars(prev => [...prev, v]);
+                                setHangryeolInput('');
+                              }}
+                              className="px-3 py-2 bg-primary-50 text-primary-600 text-sm font-medium rounded-xl border border-primary-200"
+                            >추가</button>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* 위치 선택 */}
+                      <div>
+                        <label className="text-xs text-gray-500 mb-2 block">항렬 위치</label>
+                        <div className="grid grid-cols-3 gap-2">
+                          {([
+                            { pos: '앞', label: '앞자리', example: '[준]서', desc: '준서, 준혁...' },
+                            { pos: '뒤', label: '뒷자리', example: '하[준]', desc: '하준, 지준...' },
+                            { pos: '모름', label: '모름', example: '?', desc: '두 위치 모두' },
+                          ] as const).map(({ pos, label, example, desc }) => (
+                            <button
+                              key={pos}
+                              type="button"
+                              onClick={() => setHangryeolPosition(pos)}
+                              className={`p-3 rounded-xl border-2 text-center transition-all ${
+                                hangryeolPosition === pos
+                                  ? 'border-primary-400 bg-primary-50'
+                                  : 'border-gray-200'
+                              }`}
+                            >
+                              <div className="text-lg font-black text-primary-600">{example}</div>
+                              <div className="text-xs font-medium text-gray-700 mt-0.5">{label}</div>
+                              <div className="text-xs text-gray-400 mt-0.5">{desc}</div>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* 미리보기 */}
+                      {hangryeolChars.length > 0 && (
+                        <p className="text-xs text-primary-600 bg-primary-50 rounded-lg px-3 py-2">
+                          예시: {getHangryeolPreview(hangryeolChars, hangryeolPosition)}
+                        </p>
+                      )}
+                    </div>
+                  )}
                 </div>
                 <div>
                   <label className="text-xs text-gray-500 mb-1 block">형제/자매 이름 (쉼표로 구분)</label>

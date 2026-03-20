@@ -1,19 +1,53 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Sparkles, Package } from 'lucide-react';
 import CardPullAnimation from '@/components/cards/CardPullAnimation';
 import CardCollection from '@/components/cards/CardCollection';
 import { trpc } from '@/lib/trpc/client';
 import { useUserStore } from '@/stores/userStore';
-import type { Card, UserCard } from '@/types';
+import { useRouter } from 'next/navigation';
+import type { Card, UserCard, Grade, Element } from '@/types';
+
+function generateGuestCard(): Card {
+  const grades: Grade[] = ['B', 'B', 'B', 'B', 'A', 'A', 'A', 'S', 'S', 'SS'];
+  const grade = grades[Math.floor(Math.random() * grades.length)];
+  const elements: Element[] = ['wood', 'fire', 'earth', 'metal', 'water'];
+  const element = elements[Math.floor(Math.random() * elements.length)];
+  return {
+    id: 'guest-' + Date.now(),
+    name: ['봄의 기운', '달빛 수호', '황금 인연', '바람의 노래', '불꽃 수호'][Math.floor(Math.random() * 5)],
+    grade,
+    element,
+    description: '운명이 깃든 카드',
+    image_url: undefined,
+  };
+}
 
 export default function CardsPage() {
+  const router = useRouter();
   const [isAnimating, setIsAnimating] = useState(false);
   const [pulledCards, setPulledCards] = useState<Card[]>([]);
   const [tab, setTab] = useState<'pull' | 'collection'>('pull');
   const { user, updateCredits } = useUserStore();
+
+  // Guest mode state
+  const [isGuest, setIsGuest] = useState(false);
+  const [guestPulls, setGuestPulls] = useState(0);
+  const [guestPulledCards, setGuestPulledCards] = useState<Card[]>([]);
+  const [showLoginPrompt, setShowLoginPrompt] = useState(false);
+
+  useEffect(() => {
+    const cookies = document.cookie.split(';').map(c => c.trim());
+    const guestCookie = cookies.find(c => c.startsWith('destiny-baby-guest='));
+    const guest = guestCookie?.split('=')[1] === 'true';
+    setIsGuest(guest);
+    if (guest) {
+      const stored = localStorage.getItem('guest-pulls-used');
+      setGuestPulls(stored ? parseInt(stored) : 0);
+    }
+  }, []);
 
   const pullMutation = trpc.cards.pullCards.useMutation({
     onSuccess: (data) => {
@@ -27,10 +61,30 @@ export default function CardsPage() {
 
   const collectionQuery = trpc.cards.getCollection.useQuery(
     { page: 1, pageSize: 30 },
-    { enabled: tab === 'collection' }
+    { enabled: tab === 'collection' && !isGuest }
   );
 
+  const handleGuestPull = (count: 1 | 10) => {
+    const used = parseInt(localStorage.getItem('guest-pulls-used') || '0');
+    const free = Math.max(0, 3 - used);
+
+    if (count === 1 && free > 0) {
+      const mockCard = generateGuestCard();
+      setGuestPulledCards([mockCard]);
+      setIsAnimating(true);
+      const newUsed = used + 1;
+      localStorage.setItem('guest-pulls-used', String(newUsed));
+      setGuestPulls(newUsed);
+    } else {
+      setShowLoginPrompt(true);
+    }
+  };
+
   const handlePull = (count: 1 | 10) => {
+    if (isGuest) {
+      handleGuestPull(count);
+      return;
+    }
     pullMutation.mutate({ count });
   };
 
@@ -39,20 +93,24 @@ export default function CardsPage() {
   });
 
   // Derive free pulls remaining from user store (optimistic; server is source of truth)
-  const freePullsRemaining = user
+  const freePullsRemaining = isGuest
+    ? Math.max(0, 3 - guestPulls)
+    : user
     ? Math.max(0, 3 - (user.total_pulls ?? 0))
     : 3;
 
   const collectionUserCards: UserCard[] = (collectionQuery.data?.cards ?? []) as UserCard[];
+
+  const animationCards = isGuest ? guestPulledCards : pulledCards;
 
   return (
     <div className="min-h-screen pb-24" style={{ background: 'linear-gradient(135deg, #1A0A2E 0%, #2D1B69 100%)' }}>
       {/* Animation */}
       {isAnimating && (
         <CardPullAnimation
-          cards={pulledCards}
-          onComplete={() => { setIsAnimating(false); setTab('collection'); }}
-          onSkip={() => { setIsAnimating(false); setTab('collection'); }}
+          cards={animationCards}
+          onComplete={() => { setIsAnimating(false); if (!isGuest) setTab('collection'); }}
+          onSkip={() => { setIsAnimating(false); if (!isGuest) setTab('collection'); }}
         />
       )}
 
@@ -60,7 +118,7 @@ export default function CardsPage() {
       <div className="pt-12 pb-6 px-4 text-center text-white">
         <h1 className="text-2xl font-bold mb-1">운명 카드 뽑기</h1>
         <p className="text-sm text-white/60">사주로 결정되는 나만의 운명 카드</p>
-        {user && (
+        {user && !isGuest && (
           <div className="flex items-center justify-center gap-3 mt-2">
             <span className="text-sm text-gold-400 font-semibold">{user.credits} 크레딧</span>
             {freePullsRemaining > 0 && (
@@ -71,6 +129,16 @@ export default function CardsPage() {
           </div>
         )}
       </div>
+
+      {/* Guest banner */}
+      {isGuest && (
+        <div className="mx-4 mb-4 bg-amber-500/20 border border-amber-500/30 rounded-2xl p-3 text-center">
+          <p className="text-amber-200 text-xs">
+            🎁 게스트는 무료 {Math.max(0, 3 - guestPulls)}회 뽑기 가능 ·{' '}
+            <button onClick={() => router.push('/login')} className="underline ml-1">로그인하면 카드가 저장돼요</button>
+          </p>
+        </div>
+      )}
 
       {/* Tabs */}
       <div className="flex mx-4 mb-6 bg-white/10 rounded-2xl p-1">
@@ -149,7 +217,12 @@ export default function CardsPage() {
           </div>
         ) : (
           <div className="bg-white/5 rounded-2xl p-4">
-            {collectionQuery.isLoading ? (
+            {isGuest ? (
+              <div className="text-center py-12 text-white/50 text-sm">
+                <p className="mb-3">카드를 저장하려면 로그인이 필요해요</p>
+                <button onClick={() => router.push('/login')} className="bg-white/20 text-white px-4 py-2 rounded-xl text-sm font-semibold">로그인하기</button>
+              </div>
+            ) : collectionQuery.isLoading ? (
               <div className="text-center py-12 text-white/50 text-sm">불러오는 중...</div>
             ) : (
               <CardCollection
@@ -163,6 +236,19 @@ export default function CardsPage() {
           </div>
         )}
       </div>
+
+      {/* Login prompt modal */}
+      {showLoginPrompt && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center px-4">
+          <div className="bg-white rounded-3xl p-6 text-center max-w-xs w-full">
+            <div className="text-4xl mb-3">🔐</div>
+            <h3 className="font-black text-gray-900 mb-2">로그인이 필요해요</h3>
+            <p className="text-sm text-gray-500 mb-5">무료 뽑기 3회 이후엔<br/>로그인이 필요합니다</p>
+            <button onClick={() => router.push('/login')} className="w-full bg-primary-500 text-white py-3 rounded-2xl font-bold mb-2">로그인하기</button>
+            <button onClick={() => setShowLoginPrompt(false)} className="w-full text-gray-400 text-sm">나중에</button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

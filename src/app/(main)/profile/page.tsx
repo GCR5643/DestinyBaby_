@@ -2,23 +2,61 @@
 
 export const dynamic = 'force-dynamic';
 
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Settings, CreditCard, LogOut, ChevronRight, Heart } from 'lucide-react';
+import { Settings, CreditCard, LogOut, ChevronRight, Heart, X } from 'lucide-react';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
 import { useUserStore } from '@/stores/userStore';
 import { trpc } from '@/lib/trpc/client';
 
+interface ChildEntry {
+  id: string;
+  name: string;
+  birthDate: string;
+}
+
 export default function ProfilePage() {
   const router = useRouter();
   const { user } = useUserStore();
   const { data: statsData } = trpc.user.getStats.useQuery();
 
+  // Children state
+  const [children, setChildren] = useState<ChildEntry[]>([]);
+  const [showAddChild, setShowAddChild] = useState(false);
+  const [childName, setChildName] = useState('');
+  const [childBirthDate, setChildBirthDate] = useState('');
+
+  useEffect(() => {
+    const stored = localStorage.getItem('my-children');
+    if (stored) {
+      setChildren(JSON.parse(stored));
+    }
+  }, []);
+
   const handleLogout = async () => {
     const supabase = createClient();
     await supabase.auth.signOut();
     router.push('/');
+  };
+
+  const saveChildren = (updated: ChildEntry[]) => {
+    setChildren(updated);
+    localStorage.setItem('my-children', JSON.stringify(updated));
+  };
+
+  const handleAddChild = () => {
+    if (!childName) return;
+    const newChild: ChildEntry = { id: Date.now().toString(), name: childName, birthDate: childBirthDate };
+    saveChildren([...children, newChild]);
+    setChildName('');
+    setChildBirthDate('');
+    setShowAddChild(false);
+  };
+
+  const handleDeleteChild = (id: string) => {
+    saveChildren(children.filter(c => c.id !== id));
   };
 
   const MENU_ITEMS = [
@@ -57,6 +95,87 @@ export default function ProfilePage() {
               <div className="text-xs text-gray-400">{stat.label}</div>
             </div>
           ))}
+        </div>
+
+        {/* Children Section */}
+        <div className="bg-white rounded-2xl shadow-sm p-4 mb-4">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="font-bold text-gray-800">👶 우리 아이</h2>
+            <button
+              onClick={() => setShowAddChild(!showAddChild)}
+              className="text-xs text-primary-600 font-semibold bg-primary-50 px-3 py-1.5 rounded-full"
+            >
+              + 자녀 추가
+            </button>
+          </div>
+
+          {/* Add child form */}
+          {showAddChild && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              className="mb-4 p-3 bg-gray-50 rounded-xl space-y-3"
+            >
+              <div>
+                <label className="text-xs text-gray-500 mb-1 block">이름 (확정 또는 예정)</label>
+                <input
+                  type="text"
+                  value={childName}
+                  onChange={e => setChildName(e.target.value)}
+                  placeholder="예: 지우, 서연"
+                  className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-primary-400"
+                />
+              </div>
+              <div>
+                <label className="text-xs text-gray-500 mb-1 block">생년월일 (또는 예정일)</label>
+                <input
+                  type="date"
+                  value={childBirthDate}
+                  onChange={e => setChildBirthDate(e.target.value)}
+                  className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-primary-400"
+                  style={{ colorScheme: 'light' }}
+                />
+              </div>
+              <div className="flex gap-2">
+                <button onClick={handleAddChild} className="flex-1 bg-primary-500 text-white py-2 rounded-xl text-sm font-semibold">추가</button>
+                <button onClick={() => setShowAddChild(false)} className="flex-1 bg-gray-100 text-gray-600 py-2 rounded-xl text-sm">취소</button>
+              </div>
+            </motion.div>
+          )}
+
+          {children.length === 0 ? (
+            <p className="text-sm text-gray-400 text-center py-4">아이 정보를 추가해보세요 👶</p>
+          ) : (
+            <div className="space-y-3">
+              {children.map(child => (
+                <div key={child.id} className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
+                  <div className="w-10 h-10 bg-primary-100 rounded-full flex items-center justify-center text-primary-600 font-bold text-sm shrink-0">
+                    {child.name[0]}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-gray-800 text-sm">{child.name}</p>
+                    {child.birthDate && (
+                      <p className="text-xs text-gray-400">{child.birthDate.replace(/-/g, '.')} 생</p>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button
+                      onClick={() => router.push('/cards')}
+                      className="text-xs bg-purple-100 text-purple-700 px-2.5 py-1.5 rounded-full font-semibold"
+                    >
+                      🃏 카드뽑기
+                    </button>
+                    <button
+                      onClick={() => handleDeleteChild(child.id)}
+                      className="text-gray-300 hover:text-red-400 transition-colors"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Menu */}
