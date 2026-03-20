@@ -12,6 +12,34 @@ import { getElementColor, getElementEmoji } from '@/lib/utils/index';
 // ─────────────────────────────────────────────
 // Shared helpers
 // ─────────────────────────────────────────────
+
+function DateInput({ value, onChange, placeholder = '날짜 선택', label }: {
+  value: string;
+  onChange: (v: string) => void;
+  placeholder?: string;
+  label?: string;
+}) {
+  return (
+    <div className="relative">
+      {label && <label className="text-xs text-gray-500 mb-1 block">{label}</label>}
+      <input
+        type="date"
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        placeholder={placeholder}
+        className="w-full border border-gray-200 rounded-xl px-3 py-3 text-sm focus:outline-none focus:border-primary-400 bg-white appearance-none"
+        style={{ colorScheme: 'light' }}
+      />
+    </div>
+  );
+}
+
+function formatKoreanDate(dateStr: string): string {
+  const d = new Date(dateStr);
+  const weekday = d.toLocaleDateString('ko-KR', { weekday: 'long' });
+  return `${d.getFullYear()}년 ${d.getMonth() + 1}월 ${d.getDate()}일 (${weekday})`;
+}
+
 const PILLAR_LABELS = ['연주 (年柱)', '월주 (月柱)', '일주 (日柱)', '시주 (時柱)'];
 
 const ELEMENT_KO: Record<string, string> = {
@@ -258,15 +286,6 @@ function CompatibilityTab() {
 // ─────────────────────────────────────────────
 // Tab 3 — 출산일 추천 (Premium)
 // ─────────────────────────────────────────────
-interface BirthRecForm {
-  p1BirthDate: string;
-  p1BirthTime: string;
-  p2BirthDate: string;
-  p2BirthTime: string;
-  dueDate: string;
-  gender: 'male' | 'female' | 'unknown';
-}
-
 interface RecommendedDate {
   date: string;
   score: number;
@@ -274,93 +293,215 @@ interface RecommendedDate {
   luckyElement: string;
 }
 
+type BirthRecMode = 'unknown' | 'known';
+
 function BirthRecommendTab() {
   const [isPurchased] = useState(false);
+  const [mode, setMode] = useState<BirthRecMode>('unknown');
   const [results, setResults] = useState<RecommendedDate[] | null>(null);
+  const [computedDueDate, setComputedDueDate] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const { register, handleSubmit } = useForm<BirthRecForm>({
-    defaultValues: { gender: 'unknown' },
-  });
 
-  const onSubmit = async (data: BirthRecForm) => {
+  // Mode A fields
+  const [conceptionDate, setConceptionDate] = useState('');
+  // Mode B fields
+  const [dueDate, setDueDate] = useState('');
+  // Common fields
+  const [momBirthDate, setMomBirthDate] = useState('');
+  const [momBirthTime, setMomBirthTime] = useState('');
+  const [dadBirthDate, setDadBirthDate] = useState('');
+  const [dadBirthTime, setDadBirthTime] = useState('');
+  const [gender, setGender] = useState<'male' | 'female' | 'unknown'>('unknown');
+
+  const handleAnalyze = async () => {
     if (!isPurchased) return;
+    if (!momBirthDate) return;
+
+    let resolvedDueDate: string;
+    if (mode === 'unknown') {
+      if (!conceptionDate) return;
+      const d = new Date(conceptionDate);
+      d.setDate(d.getDate() + 280);
+      resolvedDueDate = d.toISOString().split('T')[0];
+      setComputedDueDate(resolvedDueDate);
+    } else {
+      if (!dueDate) return;
+      resolvedDueDate = dueDate;
+      setComputedDueDate(null);
+    }
+
     setLoading(true);
     try {
       const { calculateSaju } = await import('@/lib/saju/saju-calculator');
       const { recommendBirthDates } = await import('@/lib/saju/birth-date-recommender');
-      const parent1Saju = calculateSaju(data.p1BirthDate, data.p1BirthTime || undefined);
-      const parent2Saju = data.p2BirthDate ? calculateSaju(data.p2BirthDate, data.p2BirthTime || undefined) : undefined;
-      const startDate = new Date(data.dueDate);
-      startDate.setDate(startDate.getDate() - 7);
-      const rec = recommendBirthDates(parent1Saju, parent2Saju, startDate, 5);
+      const parent1Saju = calculateSaju(momBirthDate, momBirthTime || undefined);
+      const parent2Saju = dadBirthDate ? calculateSaju(dadBirthDate, dadBirthTime || undefined) : undefined;
+      const startDate = new Date(resolvedDueDate);
+      startDate.setDate(startDate.getDate() - 14);
+      const endDate = new Date(resolvedDueDate);
+      endDate.setDate(endDate.getDate() + 14);
+      const rec = recommendBirthDates(parent1Saju, parent2Saju, startDate, 5, endDate);
       setResults(rec);
     } finally {
       setLoading(false);
     }
   };
 
+  // Compute D-day difference between rec.date and the resolved due date
+  const getDDay = (recDateStr: string, dueDateStr: string): string => {
+    const rec = new Date(recDateStr);
+    const due = new Date(dueDateStr);
+    const diffDays = Math.round((rec.getTime() - due.getTime()) / (1000 * 60 * 60 * 24));
+    if (diffDays === 0) return '예정일 당일';
+    if (diffDays > 0) return `예정일로부터 D+${diffDays}`;
+    return `예정일로부터 D${diffDays}`;
+  };
+
+  const resolvedDueDateForDisplay = mode === 'known' ? dueDate : computedDueDate;
+
   return (
     <div className="space-y-4">
       {/* Input form */}
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="bg-white rounded-2xl p-6 shadow-md">
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-          <div>
-            <p className="text-sm font-semibold text-gray-700 mb-2">👩 엄마 생년월일</p>
-            <input type="date" {...register('p1BirthDate', { required: true })} className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-primary-400" />
-            <input type="time" {...register('p1BirthTime')} className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-primary-400 mt-2" />
+        <div className="space-y-4">
+          {/* Mode toggle */}
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => { setMode('unknown'); setResults(null); setComputedDueDate(null); }}
+              className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-sm font-semibold border transition-all ${
+                mode === 'unknown'
+                  ? 'bg-primary-50 border-primary-400 text-primary-700'
+                  : 'border-gray-200 text-gray-500'
+              }`}
+            >
+              <span>📅</span>
+              <span>예정일 모름</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => { setMode('known'); setResults(null); setComputedDueDate(null); }}
+              className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-sm font-semibold border transition-all ${
+                mode === 'known'
+                  ? 'bg-primary-50 border-primary-400 text-primary-700'
+                  : 'border-gray-200 text-gray-500'
+              }`}
+            >
+              <span>📋</span>
+              <span>예정일 있음</span>
+            </button>
           </div>
-          <div>
-            <p className="text-sm font-semibold text-gray-700 mb-2">👨 아빠 생년월일 (선택)</p>
-            <input type="date" {...register('p2BirthDate')} className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-primary-400" />
-            <input type="time" {...register('p2BirthTime')} className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-primary-400 mt-2" />
+
+          {/* Mode A: conception date */}
+          {mode === 'unknown' && (
+            <div className="space-y-2">
+              <DateInput
+                label="임신 확인일 (또는 마지막 생리 시작일) *"
+                value={conceptionDate}
+                onChange={v => {
+                  setConceptionDate(v);
+                  setResults(null);
+                  if (v) {
+                    const d = new Date(v);
+                    d.setDate(d.getDate() + 280);
+                    setComputedDueDate(d.toISOString().split('T')[0]);
+                  } else {
+                    setComputedDueDate(null);
+                  }
+                }}
+              />
+              {computedDueDate && (
+                <div className="text-xs text-primary-700 bg-primary-50 rounded-xl px-3 py-2">
+                  예상 예정일: <strong>{formatKoreanDate(computedDueDate)}</strong> (±2주)
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Mode B: direct due date */}
+          {mode === 'known' && (
+            <DateInput
+              label="예정일 *"
+              value={dueDate}
+              onChange={v => { setDueDate(v); setResults(null); }}
+            />
+          )}
+
+          {/* Mom */}
+          <div className="space-y-2">
+            <p className="text-sm font-semibold text-gray-700">👩 엄마 생년월일 *</p>
+            <DateInput value={momBirthDate} onChange={setMomBirthDate} />
+            <input
+              type="time"
+              value={momBirthTime}
+              onChange={e => setMomBirthTime(e.target.value)}
+              className="w-full border border-gray-200 rounded-xl px-3 py-3 text-sm focus:outline-none focus:border-primary-400 bg-white appearance-none"
+              style={{ colorScheme: 'light' }}
+            />
           </div>
-          <div>
-            <label className="text-xs text-gray-500 mb-1 block">예정일 *</label>
-            <input type="date" {...register('dueDate', { required: true })} className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-primary-400" />
+
+          {/* Dad */}
+          <div className="space-y-2">
+            <p className="text-sm font-semibold text-gray-700">👨 아빠 생년월일 (선택)</p>
+            <DateInput value={dadBirthDate} onChange={setDadBirthDate} />
+            <input
+              type="time"
+              value={dadBirthTime}
+              onChange={e => setDadBirthTime(e.target.value)}
+              className="w-full border border-gray-200 rounded-xl px-3 py-3 text-sm focus:outline-none focus:border-primary-400 bg-white appearance-none"
+              style={{ colorScheme: 'light' }}
+            />
           </div>
+
+          {/* Gender */}
           <div>
             <label className="text-xs text-gray-500 mb-2 block">성별</label>
             <div className="flex gap-2">
-              {([['male', '남자아이'], ['female', '여자아이'], ['unknown', '모름']] as const).map(([val, label]) => (
-                <label key={val} className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl border text-sm cursor-pointer has-[:checked]:bg-primary-50 has-[:checked]:border-primary-400 has-[:checked]:text-primary-700 border-gray-200 text-gray-500">
-                  <input type="radio" value={val} {...register('gender')} className="sr-only" />
-                  {label}
-                </label>
+              {([['male', '남자아이'], ['female', '여자아이'], ['unknown', '모름']] as const).map(([val, lbl]) => (
+                <button
+                  key={val}
+                  type="button"
+                  onClick={() => setGender(val)}
+                  className={`flex-1 py-2 rounded-xl border text-sm transition-all ${
+                    gender === val
+                      ? 'bg-primary-50 border-primary-400 text-primary-700 font-semibold'
+                      : 'border-gray-200 text-gray-500'
+                  }`}
+                >
+                  {lbl}
+                </button>
               ))}
             </div>
           </div>
 
-          {/* Premium CTA button */}
+          {/* CTA */}
           {!isPurchased ? (
             <div className="relative">
               <button
                 type="button"
                 className="w-full bg-gradient-to-r from-amber-400 to-orange-500 text-white py-3.5 rounded-2xl font-bold shadow-lg"
-                onClick={() => {
-                  // TODO: implement payment flow
-                  alert('결제 기능은 준비 중입니다.');
-                }}
+                onClick={() => alert('결제 기능은 준비 중입니다.')}
               >
                 🔒 출산일 추천받기 — 15,000원
               </button>
-              <p className="text-center text-xs text-gray-400 mt-2">예정일 ±7일 내 최적 출산 시간 TOP5 추천</p>
+              <p className="text-center text-xs text-gray-400 mt-2">예정일 ±14일 내 최적 출산 날짜 TOP5 추천</p>
             </div>
           ) : (
             <button
-              type="submit"
+              type="button"
               disabled={loading}
+              onClick={handleAnalyze}
               className="w-full bg-gradient-to-r from-amber-400 to-orange-500 text-white py-3.5 rounded-2xl font-bold disabled:opacity-60"
             >
               {loading ? '분석 중...' : '✨ 최적 출산일 분석하기'}
             </button>
           )}
-        </form>
+        </div>
       </motion.div>
 
       {/* Premium paywall overlay preview */}
       {!isPurchased && (
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="relative rounded-2xl overflow-hidden shadow-md">
-          {/* Blurred preview */}
           <div className="blur-sm pointer-events-none select-none">
             <div className="bg-white p-5 space-y-3">
               {[1, 2, 3, 4, 5].map(n => (
@@ -377,22 +518,17 @@ function BirthRecommendTab() {
               ))}
             </div>
           </div>
-
-          {/* Overlay */}
           <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/60 backdrop-blur-[2px]">
             <div className="bg-white rounded-2xl p-6 shadow-xl mx-4 text-center">
               <div className="text-4xl mb-3">🔮</div>
               <h3 className="font-black text-gray-900 text-lg mb-1">프리미엄 기능</h3>
               <p className="text-sm text-gray-500 mb-4 leading-relaxed">
-                예정일 ±7일 내 사주가 가장 좋은<br />출산 시간 TOP5를 추천해드려요
+                예정일 ±14일 내 사주가 가장 좋은<br />출산 날짜 TOP5를 추천해드려요
               </p>
               <div className="text-2xl font-black text-amber-500 mb-4">15,000원</div>
               <button
                 className="w-full bg-gradient-to-r from-amber-400 to-orange-500 text-white py-3 rounded-2xl font-bold shadow-md"
-                onClick={() => {
-                  // TODO: implement payment flow
-                  alert('결제 기능은 준비 중입니다.');
-                }}
+                onClick={() => alert('결제 기능은 준비 중입니다.')}
               >
                 🔒 구매하고 확인하기
               </button>
@@ -401,7 +537,7 @@ function BirthRecommendTab() {
         </motion.div>
       )}
 
-      {/* Results (shown after purchase) */}
+      {/* Results */}
       <AnimatePresence>
         {isPurchased && results && (
           <motion.div
@@ -410,7 +546,7 @@ function BirthRecommendTab() {
             animate={{ opacity: 1, y: 0 }}
             className="space-y-3"
           >
-            <h3 className="font-bold text-gray-800 px-1">추천 출산 시간 TOP5</h3>
+            <h3 className="font-bold text-gray-800 px-1">추천 출산 날짜 TOP5</h3>
             {results.map((rec, i) => (
               <div
                 key={i}
@@ -420,7 +556,12 @@ function BirthRecommendTab() {
                   {i + 1}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="font-bold text-gray-900">{rec.date}</p>
+                  <p className="font-bold text-gray-900">{formatKoreanDate(rec.date)}</p>
+                  {resolvedDueDateForDisplay && (
+                    <p className="text-xs text-primary-600 font-medium mt-0.5">
+                      {getDDay(rec.date, resolvedDueDateForDisplay)}
+                    </p>
+                  )}
                   <p className="text-xs text-gray-500 mt-0.5 leading-relaxed">{rec.reason}</p>
                   <div className="mt-1.5 inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-amber-50 text-amber-700">
                     {getElementEmoji(rec.luckyElement as Parameters<typeof getElementEmoji>[0])} 행운 오행: {ELEMENT_KO[rec.luckyElement] ?? rec.luckyElement}

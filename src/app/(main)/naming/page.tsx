@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useForm } from 'react-hook-form';
+import { useForm, Controller } from 'react-hook-form';
+import { KoreanDatePicker } from '@/components/ui/KoreanDatePicker';
 import { motion } from 'framer-motion';
 import { Sparkles, ChevronRight, Search } from 'lucide-react';
 import { trpc } from '@/lib/trpc/client';
@@ -26,7 +27,7 @@ export default function NamingPage() {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
   const [isGuest, setIsGuest] = useState(false);
-  const { register, handleSubmit, watch, formState: { errors } } = useForm<NamingFormData>({
+  const { register, handleSubmit, watch, control, formState: { errors } } = useForm<NamingFormData>({
     defaultValues: { gender: 'unknown' }
   });
   const generateNames = trpc.naming.generateNames.useMutation();
@@ -101,10 +102,17 @@ export default function NamingPage() {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="text-xs text-gray-500 mb-1 block">생년월일 *</label>
-                  <input
-                    type="date"
-                    {...register('parent1BirthDate', { required: '필수 입력입니다' })}
-                    className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-primary-400"
+                  <Controller
+                    name="parent1BirthDate"
+                    control={control}
+                    rules={{ required: '필수 입력입니다' }}
+                    render={({ field }) => (
+                      <KoreanDatePicker
+                        value={field.value || ''}
+                        onChange={field.onChange}
+                        placeholder="생년월일 선택"
+                      />
+                    )}
                   />
                   {errors.parent1BirthDate && <p className="text-red-500 text-xs mt-1">{errors.parent1BirthDate.message}</p>}
                 </div>
@@ -125,10 +133,16 @@ export default function NamingPage() {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="text-xs text-gray-500 mb-1 block">생년월일</label>
-                  <input
-                    type="date"
-                    {...register('parent2BirthDate')}
-                    className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-primary-400"
+                  <Controller
+                    name="parent2BirthDate"
+                    control={control}
+                    render={({ field }) => (
+                      <KoreanDatePicker
+                        value={field.value || ''}
+                        onChange={field.onChange}
+                        placeholder="생년월일 선택"
+                      />
+                    )}
                   />
                 </div>
                 <div>
@@ -148,10 +162,16 @@ export default function NamingPage() {
               <div className="grid grid-cols-2 gap-3 mb-3">
                 <div>
                   <label className="text-xs text-gray-500 mb-1 block">생년월일 (예정일)</label>
-                  <input
-                    type="date"
-                    {...register('babyBirthDate')}
-                    className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-primary-400"
+                  <Controller
+                    name="babyBirthDate"
+                    control={control}
+                    render={({ field }) => (
+                      <KoreanDatePicker
+                        value={field.value || ''}
+                        onChange={field.onChange}
+                        placeholder="생년월일 선택"
+                      />
+                    )}
                   />
                 </div>
                 <div>

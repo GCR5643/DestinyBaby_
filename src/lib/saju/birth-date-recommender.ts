@@ -13,13 +13,20 @@ export function recommendBirthDates(
   parent1Saju: SajuResult,
   parent2Saju?: SajuResult,
   startDate?: Date,
-  count = 5
+  count = 5,
+  endDate?: Date
 ): RecommendedDate[] {
   const recommendations: RecommendedDate[] = [];
   const base = startDate || new Date();
 
-  // Check next 365 days
-  for (let i = 0; i < 365 && recommendations.length < count * 3; i++) {
+  // Determine max days to check
+  let maxDays = 365;
+  if (endDate) {
+    const diffMs = endDate.getTime() - base.getTime();
+    maxDays = Math.max(1, Math.ceil(diffMs / (1000 * 60 * 60 * 24)) + 1);
+  }
+
+  for (let i = 0; i < maxDays && recommendations.length < count * 3; i++) {
     const date = new Date(base);
     date.setDate(date.getDate() + i);
     const dateStr = date.toISOString().split('T')[0];
