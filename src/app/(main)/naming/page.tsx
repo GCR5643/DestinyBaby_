@@ -56,6 +56,7 @@ export default function NamingPage() {
   const [hangryeolPosition, setHangryeolPosition] = useState<'앞' | '뒤' | '모름'>('뒤');
   const [useLuckyDate, setUseLuckyDate] = useState(false);
   const [selectedLuckyDateId, setSelectedLuckyDateId] = useState<string | null>(null);
+  const [trendLevel, setTrendLevel] = useState<'trendy' | 'balanced' | 'classic'>('balanced');
   const { register, handleSubmit, watch, control, setValue, formState: { errors } } = useForm<NamingFormData>({
     defaultValues: { gender: 'unknown' }
   });
@@ -100,6 +101,7 @@ export default function NamingPage() {
           ? `${hangryeolPosition}:${hangryeolChars.join(',')}`
           : undefined,
         siblingNames: data.siblingNames ? data.siblingNames.split(',').map(s => s.trim()) : undefined,
+        trendLevel,
       };
 
       // 재생성을 위해 payload는 항상 저장 (로그인/비로그인 공통)
@@ -383,6 +385,31 @@ export default function NamingPage() {
                     </label>
                   ))}
                 </div>
+              </div>
+            </div>
+
+            {/* Trend Level */}
+            <div>
+              <label className="text-xs text-gray-500 mb-2 block">이름 스타일</label>
+              <div className="grid grid-cols-3 gap-2">
+                {[
+                  { value: 'trendy' as const, label: '요즘 인기', desc: '2024~2025 트렌드', color: 'bg-rose-50 border-rose-200 text-rose-700' },
+                  { value: 'balanced' as const, label: '균형잡힌', desc: '현대적 + 품격', color: 'bg-violet-50 border-violet-200 text-violet-700' },
+                  { value: 'classic' as const, label: '전통 고전', desc: '격조 있는 정통', color: 'bg-amber-50 border-amber-200 text-amber-700' },
+                ].map(opt => (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => setTrendLevel(opt.value)}
+                    className={cn(
+                      'text-center py-2.5 px-1 rounded-xl border-2 transition-all',
+                      trendLevel === opt.value ? opt.color + ' ring-2 ring-primary-400' : 'border-gray-200 text-gray-500'
+                    )}
+                  >
+                    <div className="text-sm font-medium">{opt.label}</div>
+                    <div className="text-[10px] mt-0.5 opacity-70">{opt.desc}</div>
+                  </button>
+                ))}
               </div>
             </div>
 

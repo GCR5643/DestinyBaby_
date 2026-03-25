@@ -111,6 +111,8 @@ export interface ParentChildCompatibilityResult {
 }
 
 // Naming types
+export type TrendLevel = 'trendy' | 'balanced' | 'classic';
+
 export interface NamingInput {
   parent1Saju: SajuResult;
   parent2Saju?: SajuResult;
@@ -122,6 +124,7 @@ export interface NamingInput {
   surnameHanja?: string;
   hangryeolChar?: string;
   siblingNames?: string[];
+  trendLevel?: TrendLevel;
   preferences?: {
     preferredElements?: Element[];
     avoidChars?: string[];

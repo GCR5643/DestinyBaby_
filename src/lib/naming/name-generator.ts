@@ -1,6 +1,49 @@
-import type { NamingInput, SuggestedName, Element } from '@/types';
+import type { NamingInput, SuggestedName, Element, TrendLevel } from '@/types';
 import { callLLM } from '@/lib/llm/llm-client';
 import { getHanjaEntry, getHanjaStrokes } from '@/lib/naming/hanja-strokes';
+
+// ── 트렌디함 레벨별 LLM 프롬프트 지시문 ──────────────────────────────────────
+const TREND_INSTRUCTIONS: Record<TrendLevel, { label: string; directive: string; examples: Record<'male' | 'female' | 'unknown', string> }> = {
+  trendy: {
+    label: '요즘 인기 이름',
+    directive: `## 이름 스타일: 트렌디 (요즘 인기)
+- 2022~2025년 대한민국 출생신고 상위권에 있는 최신 트렌드 이름 스타일로 추천하세요.
+- 요즘 부모들이 실제로 많이 짓는 세련되고 현대적인 감각의 이름을 우선하세요.
+- 순우리말 이름(예: 하늘, 이든, 소율, 다온)도 적극 포함 가능합니다.
+- 너무 고전적이거나 올드한 느낌의 이름은 피하세요.`,
+    examples: {
+      male: '이든, 시우, 하준, 서진, 지안, 유준, 이안, 레오, 도윤, 건우, 태오, 서율, 은호, 선우, 지율',
+      female: '하윤, 서아, 지유, 다인, 소율, 이서, 리안, 지아, 다온, 서율, 유나, 하린, 아인, 소이, 서하',
+      unknown: '이든, 하윤, 시우, 서아, 지유, 하준, 다온, 서율, 소이, 지안',
+    },
+  },
+  balanced: {
+    label: '균형잡힌 이름',
+    directive: `## 이름 스타일: 균형 (현대적이면서 품격 있는)
+- 너무 유행을 타지도, 너무 고전적이지도 않은 균형잡힌 이름을 추천하세요.
+- 현대적 감각과 전통적 품격을 모두 갖춘 이름이 이상적입니다.
+- 10년 후에도 자연스럽게 불릴 수 있는 시대를 타지 않는 이름을 지향하세요.`,
+    examples: {
+      male: '서준, 도윤, 지호, 예준, 현우, 주원, 민준, 승현, 태윤, 건호, 준혁, 시윤, 도현, 유찬, 재원',
+      female: '서윤, 하은, 수아, 예은, 윤서, 채원, 서현, 예린, 수빈, 지윤, 시은, 채은, 다현, 민서, 유진',
+      unknown: '서윤, 서준, 하윤, 도윤, 지유, 시우, 하은, 예준, 수아, 지호',
+    },
+  },
+  classic: {
+    label: '전통 고전 이름',
+    directive: `## 이름 스타일: 클래식 (전통 고전)
+- 전통 명리학에 충실하고, 격조 있는 고전적 한국 이름을 추천하세요.
+- 한자의 뜻과 음이 깊고 품격이 있는 이름을 우선하세요.
+- 시대를 초월하는 정통 작명법에 따른 이름 (수리격·음양오행 중시).
+- 순우리말 이름보다는 한자 기반의 전통적 이름을 선호합니다.
+- 조부모 세대가 들어도 "좋은 이름"이라고 느낄 수 있는 격식 있는 이름이어야 합니다.`,
+    examples: {
+      male: '정훈, 성현, 태현, 준호, 영민, 상현, 민혁, 재훈, 승호, 경민, 현준, 동현, 진우, 태호, 윤혁',
+      female: '은지, 수현, 지현, 예지, 혜원, 민지, 서영, 현정, 정은, 유정, 보람, 은수, 혜진, 지영, 나현',
+      unknown: '정훈, 수현, 성현, 지현, 태현, 예지, 준호, 혜원, 영민, 민지',
+    },
+  },
+};
 
 // ── 한국 작명에서 실제 사용되는 오행별 인기 한자 ──────────────────────────────
 // 대한민국 출생신고 기준 인기 한자 위주, 중국식 전용 한자 제외
@@ -174,16 +217,16 @@ ${TONE_SYSTEM}`;
   const sajuBasis = input.babySaju ? '아기 사주' : '부모1 사주';
 
   // 성별에 따른 한국 인기 이름 레퍼런스
-  const genderExamples = input.gender === 'male'
-    ? '서준, 도윤, 시우, 하준, 은우, 지호, 예준, 건우, 현우, 주원, 민준, 유준, 지환, 승현, 태윤, 준혁, 지안, 이든, 시윤, 도현'
-    : input.gender === 'female'
-    ? '서윤, 서아, 하윤, 지유, 하은, 수아, 예은, 지아, 윤서, 채원, 소율, 다인, 서현, 예린, 하린, 수빈, 지윤, 시은, 유나, 채은'
-    : '서윤, 서준, 하윤, 도윤, 지유, 시우, 하은, 예준, 수아, 지호';
+  // 트렌디함 레벨에 따른 이름 레퍼런스
+  const trend = TREND_INSTRUCTIONS[input.trendLevel ?? 'balanced'];
+  const genderKey = input.gender === 'male' ? 'male' : input.gender === 'female' ? 'female' : 'unknown';
+  const genderExamples = trend.examples[genderKey];
 
   const userPrompt = `다음 사주 조건에 맞는 한국식 아기 이름 7개를 추천해주세요.
 
+${trend.directive}
+
 ## 최우선 규칙: 한국식 이름만
-- 한국 부모가 2020~2025년 출생신고에 실제 사용하는 스타일
 - 아래 레퍼런스와 비슷한 음절 감각의 이름: ${genderExamples}
 - 이름은 2글자(두 음절)를 기본으로 하되, 외자(1글자)도 1~2개 포함 가능
 - 중국식/일본식 이름 절대 금지
