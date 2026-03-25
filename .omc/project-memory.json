@@ -141,8 +141,8 @@
   "hotPaths": [
     {
       "path": "src/app/(main)/naming/result/[id]/page.tsx",
-      "accessCount": 18,
-      "lastAccessed": 1774394385867,
+      "accessCount": 28,
+      "lastAccessed": 1774401892462,
       "type": "file"
     },
     {
@@ -155,6 +155,12 @@
       "path": "src/lib/naming/name-generator.ts",
       "accessCount": 11,
       "lastAccessed": 1774392318100,
+      "type": "file"
+    },
+    {
+      "path": "src/lib/trpc/routers/naming.ts",
+      "accessCount": 11,
+      "lastAccessed": 1774401597207,
       "type": "file"
     },
     {
@@ -173,12 +179,6 @@
       "path": "src/lib/saju/card-matcher.ts",
       "accessCount": 7,
       "lastAccessed": 1774394458415,
-      "type": "file"
-    },
-    {
-      "path": "src/lib/trpc/routers/naming.ts",
-      "accessCount": 6,
-      "lastAccessed": 1774363980655,
       "type": "file"
     },
     {
@@ -224,6 +224,12 @@
       "type": "file"
     },
     {
+      "path": "src/lib/llm/llm-client.ts",
+      "accessCount": 4,
+      "lastAccessed": 1774401389755,
+      "type": "file"
+    },
+    {
       "path": "src/lib/saju/birth-date-recommender.ts",
       "accessCount": 3,
       "lastAccessed": 1773988458700,
@@ -239,12 +245,6 @@
       "path": "src/app/api/debug-llm/route.ts",
       "accessCount": 3,
       "lastAccessed": 1774391355271,
-      "type": "file"
-    },
-    {
-      "path": "src/lib/llm/llm-client.ts",
-      "accessCount": 3,
-      "lastAccessed": 1774391677117,
       "type": "file"
     },
     {
@@ -365,6 +365,12 @@
       "path": "docs/card-design-system.md",
       "accessCount": 1,
       "lastAccessed": 1774401101867,
+      "type": "file"
+    },
+    {
+      "path": "src/lib/naming/famous-names.ts",
+      "accessCount": 1,
+      "lastAccessed": 1774401439081,
       "type": "file"
     }
   ],

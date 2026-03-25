@@ -8,6 +8,7 @@ import { generateEnglishNames } from '@/lib/naming/english-name-generator';
 import { calculateSaju } from '@/lib/saju/saju-calculator';
 import { analyzeParentChildCompatibility } from '@/lib/saju/compatibility';
 import { fetchKosisNameStats, getNationalTrendPercent, MALE_TOP_200, type KosisNameStat } from '@/lib/naming/kosis-popularity';
+import { searchFamousNames } from '@/lib/naming/famous-names';
 import type { SuggestedName } from '@/types';
 
 function generateShareCode(): string {
@@ -568,5 +569,12 @@ export const namingRouter = createTRPCRouter({
 
       if (error) throw new Error('투표 실패');
       return { success: true };
+    }),
+
+  // ── 이름 유명인/매체 검색 ──────────────────────────────────────────────
+  getFamousNames: publicProcedure
+    .input(z.object({ givenName: z.string().min(1).max(10) }))
+    .query(async ({ input }) => {
+      return searchFamousNames(input.givenName);
     }),
 });

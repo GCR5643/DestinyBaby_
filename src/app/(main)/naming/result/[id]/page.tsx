@@ -115,9 +115,11 @@ interface NameCardProps {
   popularity: PopularityInfo | undefined;
   onAddCandidate: (name: SuggestedName) => void;
   onVoice: (name: string) => void;
+  onFamous: (givenName: string) => void;
+  isFamousActive: boolean;
 }
 
-function NameCard({ name, index, isCandidate, popularity, onAddCandidate, onVoice }: NameCardProps) {
+function NameCard({ name, index, isCandidate, popularity, onAddCandidate, onVoice, onFamous, isFamousActive }: NameCardProps) {
   const elementColor = getElementColor(name.element || 'wood');
 
   return (
@@ -195,6 +197,17 @@ function NameCard({ name, index, isCandidate, popularity, onAddCandidate, onVoic
             {isCandidate ? '✅ 후보됨' : '⭐ 후보 추가'}
           </button>
         </div>
+        <button
+          onClick={() => onFamous(name.name)}
+          className={cn(
+            'w-full mt-2 flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-medium transition-colors',
+            isFamousActive
+              ? 'bg-amber-50 text-amber-600 border border-amber-200'
+              : 'text-gray-400 hover:bg-gray-50 hover:text-gray-600'
+          )}
+        >
+          🌟 이 이름의 유명인 보기
+        </button>
       </div>
     </motion.div>
   );
@@ -220,8 +233,15 @@ export default function NamingResultPage({ params }: { params: { id: string } })
   const [isLoggedIn, setIsLoggedIn] = useState<boolean | null>(null);
   const [showRegeneratePrompt, setShowRegeneratePrompt] = useState(false);
   const [isRegenerating, setIsRegenerating] = useState(false);
+  const [famousNameQuery, setFamousNameQuery] = useState<string | null>(null);
 
   const generateNamesPublic = trpc.naming.generateNamesPublic.useMutation();
+
+  // 유명인 검색 쿼리
+  const famousNamesQuery = trpc.naming.getFamousNames.useQuery(
+    { givenName: famousNameQuery ?? '' },
+    { enabled: !!famousNameQuery, staleTime: 1000 * 60 * 30 }
+  );
 
   const handleRegenerate = useCallback(async () => {
     if (isRegenerating) return;
@@ -509,6 +529,8 @@ export default function NamingResultPage({ params }: { params: { id: string } })
                 popularity={popularityMap[name.name]}
                 onAddCandidate={handleAddCandidate}
                 onVoice={handleVoice}
+                onFamous={(givenName) => setFamousNameQuery(prev => prev === givenName ? null : givenName)}
+                isFamousActive={famousNameQuery === name.name}
               />
             ))}
           </AnimatePresence>
@@ -540,6 +562,82 @@ export default function NamingResultPage({ params }: { params: { id: string } })
           >
             <Shuffle className="w-4 h-4" /> 더 뽑아보기 🎲
           </button>
+        )}
+
+        {/* Famous Names Panel */}
+        {famousNameQuery && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-white rounded-2xl shadow-md p-5 mb-4"
+          >
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="font-bold text-gray-800">
+                🌟 &quot;{famousNameQuery}&quot; 이름의 주인공들
+              </h3>
+              <button
+                onClick={() => setFamousNameQuery(null)}
+                className="text-xs text-gray-400 hover:text-gray-600"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {famousNamesQuery.isLoading ? (
+              <div className="flex items-center justify-center py-6 gap-2">
+                <div className="w-5 h-5 border-2 border-primary-200 border-t-primary-500 rounded-full animate-spin" />
+                <span className="text-sm text-gray-400">유명인을 찾고 있어요...</span>
+              </div>
+            ) : famousNamesQuery.data && famousNamesQuery.data.people.length > 0 ? (
+              <>
+                <div className="space-y-2.5 mb-3">
+                  {famousNamesQuery.data.people.map((person, i) => {
+                    const categoryEmojis: Record<string, string> = {
+                      drama: '📺', movie: '🎬', novel: '📚', celebrity: '⭐',
+                      sports: '⚽', history: '🏛️', science: '🔬', politics: '🏢',
+                      cartoon: '🎨', music: '🎵',
+                    };
+                    const emoji = categoryEmojis[person.category] || '✨';
+                    return (
+                      <motion.div
+                        key={i}
+                        initial={{ opacity: 0, x: -10 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: i * 0.08 }}
+                        className="flex gap-3 p-3 bg-gray-50 rounded-xl"
+                      >
+                        <span className="text-xl flex-shrink-0 mt-0.5">{emoji}</span>
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-bold text-sm text-gray-800">{person.name}</span>
+                            <span className="text-[11px] px-1.5 py-0.5 bg-primary-100 text-primary-700 rounded-full font-medium">
+                              {person.categoryLabel}
+                            </span>
+                          </div>
+                          <p className="text-xs text-gray-600 mt-0.5 leading-relaxed">{person.description}</p>
+                          {person.work && (
+                            <p className="text-[11px] text-gray-400 mt-0.5">
+                              {person.work}{person.actor ? ` (${person.actor})` : ''}
+                            </p>
+                          )}
+                          {person.funFact && (
+                            <p className="text-[11px] text-primary-500 mt-0.5 italic">{person.funFact}</p>
+                          )}
+                        </div>
+                      </motion.div>
+                    );
+                  })}
+                </div>
+                <p className="text-xs text-center text-gray-400 italic">
+                  {famousNamesQuery.data.funComment}
+                </p>
+              </>
+            ) : (
+              <p className="text-sm text-gray-400 text-center py-4">
+                아직 유명한 &quot;{famousNameQuery}&quot; 정보를 찾지 못했어요
+              </p>
+            )}
+          </motion.div>
         )}
 
         {/* Candidate section */}
