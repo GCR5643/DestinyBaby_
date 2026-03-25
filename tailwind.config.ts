@@ -9,6 +9,34 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
+        /* shadcn CSS variable colors */
+        background: "hsl(var(--background))",
+        foreground: "hsl(var(--foreground))",
+        card: {
+          DEFAULT: "hsl(var(--card))",
+          foreground: "hsl(var(--card-foreground))",
+        },
+        popover: {
+          DEFAULT: "hsl(var(--popover))",
+          foreground: "hsl(var(--popover-foreground))",
+        },
+        muted: {
+          DEFAULT: "hsl(var(--muted))",
+          foreground: "hsl(var(--muted-foreground))",
+        },
+        accent: {
+          DEFAULT: "hsl(var(--accent))",
+          foreground: "hsl(var(--accent-foreground))",
+        },
+        destructive: {
+          DEFAULT: "hsl(var(--destructive))",
+          foreground: "hsl(var(--destructive-foreground))",
+        },
+        border: "hsl(var(--border))",
+        input: "hsl(var(--input))",
+        ring: "hsl(var(--ring))",
+
+        /* existing brand color palettes (preserved) */
         primary: {
           DEFAULT: "#6C5CE7",
           50: "#f0effe",
@@ -49,6 +77,13 @@ const config: Config = {
           900: "#6f3c00",
         },
         ivory: "#FFF8F0",
+        'card-dark': '#1A0A2E',
+        'card-purple': '#2D1B69',
+      },
+      borderRadius: {
+        lg: "var(--radius)",
+        md: "calc(var(--radius) - 2px)",
+        sm: "calc(var(--radius) - 4px)",
       },
       fontFamily: {
         pretendard: ["Pretendard", "sans-serif"],
@@ -96,7 +131,7 @@ const config: Config = {
       },
     },
   },
-  plugins: [],
+  plugins: [require("tailwindcss-animate")],
 };
 
 export default config;

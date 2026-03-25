@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { Providers } from "@/components/layout/Providers";
+import { KakaoScript } from "@/components/layout/KakaoScript";
 
 export const metadata: Metadata = {
   title: "운명의 아이 (Destiny Baby)",
@@ -22,6 +23,7 @@ export default function RootLayout({
     <html lang="ko">
       <body>
         <Providers>{children}</Providers>
+        <KakaoScript />
       </body>
     </html>
   );

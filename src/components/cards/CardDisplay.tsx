@@ -5,7 +5,7 @@ import type { Card, Grade } from '@/types';
 import { getGradeColor, getElementColor, getElementEmoji, cn } from '@/lib/utils';
 
 const GRADE_LABELS: Record<Grade, string> = {
-  B: '기본 운세', A: '좋은 운세', S: '훌륭한 운세', SS: '특별한 운세', SSS: '전설급 운세',
+  N: '일반', R: '레어', SR: '슈퍼레어', SSR: '초레어', UR: '울트라레어', SSS: '신화',
 };
 
 interface CardDisplayProps {
@@ -25,8 +25,10 @@ export default function CardDisplay({ card, size = 'md', showDetails = false, is
   };
 
   const isSSS = card.grade === 'SSS';
-  const isSS = card.grade === 'SS';
-  const isS = card.grade === 'S';
+  const isUR = card.grade === 'UR';
+  const isSSR = card.grade === 'SSR';
+  const isSR = card.grade === 'SR';
+  const isR = card.grade === 'R';
 
   return (
     <motion.div
@@ -38,11 +40,15 @@ export default function CardDisplay({ card, size = 'md', showDetails = false, is
           ? 'linear-gradient(135deg, #1a0a2e, #2d1b69, #6c5ce7)'
           : `linear-gradient(135deg, #1A0A2E, #2D1B69)`,
         boxShadow: isSSS
-          ? '0 0 40px rgba(225, 112, 85, 0.5)'
-          : isSS
-          ? '0 0 30px rgba(253, 121, 168, 0.4)'
-          : isS
-          ? '0 0 20px rgba(162, 155, 254, 0.4)'
+          ? '0 0 40px rgba(236, 72, 153, 0.6)'
+          : isUR
+          ? '0 0 30px rgba(239, 68, 68, 0.5)'
+          : isSSR
+          ? '0 0 25px rgba(245, 158, 11, 0.5)'
+          : isSR
+          ? '0 0 20px rgba(139, 92, 246, 0.4)'
+          : isR
+          ? '0 0 15px rgba(59, 130, 246, 0.3)'
           : undefined,
       }}
     >

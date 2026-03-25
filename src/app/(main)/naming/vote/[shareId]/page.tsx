@@ -1,58 +1,58 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { getElementColor } from '@/lib/utils';
+import { trpc } from '@/lib/trpc/client';
 import type { SuggestedName } from '@/types';
-
-interface VoteData {
-  candidates: SuggestedName[];
-  votes: Record<string, number>;
-  hasVoted: boolean;
-  votedFor: string | null;
-}
-
-function loadVoteData(shareId: string): VoteData | null {
-  try {
-    const raw = localStorage.getItem(`vote-${shareId}`);
-    if (!raw) return null;
-    const candidates: SuggestedName[] = JSON.parse(raw);
-    const votesRaw = localStorage.getItem(`votes-${shareId}`);
-    const votes: Record<string, number> = votesRaw ? JSON.parse(votesRaw) : {};
-    const hasVoted = localStorage.getItem(`voted-${shareId}`) === 'true';
-    const votedFor = localStorage.getItem(`votedFor-${shareId}`) ?? null;
-    return { candidates, votes, hasVoted, votedFor };
-  } catch {
-    return null;
-  }
-}
 
 export default function VotePage({ params }: { params: { shareId: string } }) {
   const { shareId } = params;
 
-  const [data, setData] = useState<VoteData | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [voterName, setVoterName] = useState('');
+  const [hasVoted, setHasVoted] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return localStorage.getItem(`voted-${shareId}`) === 'true';
+  });
+  const [votedFor, setVotedFor] = useState<string | null>(() => {
+    if (typeof window === 'undefined') return null;
+    return localStorage.getItem(`votedFor-${shareId}`) ?? null;
+  });
   const [toast, setToast] = useState('');
 
-  useEffect(() => {
-    const loaded = loadVoteData(shareId);
-    setData(loaded);
-    setLoading(false);
-  }, [shareId]);
+  const sessionQuery = trpc.naming.getVoteSession.useQuery(
+    { shareCode: shareId },
+    { refetchOnWindowFocus: false }
+  );
+
+  const voteMutation = trpc.naming.vote.useMutation({
+    onSuccess: () => {
+      sessionQuery.refetch();
+    },
+  });
 
   const showToast = (msg: string) => {
     setToast(msg);
     setTimeout(() => setToast(''), 2500);
   };
 
-  const handleVote = useCallback((name: string) => {
-    if (!data || data.hasVoted) return;
-    const newVotes = { ...data.votes, [name]: (data.votes[name] ?? 0) + 1 };
-    localStorage.setItem(`votes-${shareId}`, JSON.stringify(newVotes));
-    localStorage.setItem(`voted-${shareId}`, 'true');
-    localStorage.setItem(`votedFor-${shareId}`, name);
-    setData(prev => prev ? { ...prev, votes: newVotes, hasVoted: true, votedFor: name } : prev);
-  }, [data, shareId]);
+  const handleVote = useCallback(async (name: string) => {
+    if (hasVoted) return;
+    try {
+      await voteMutation.mutateAsync({
+        shareCode: shareId,
+        votedName: name,
+        voterName: voterName || undefined,
+      });
+      localStorage.setItem(`voted-${shareId}`, 'true');
+      localStorage.setItem(`votedFor-${shareId}`, name);
+      setHasVoted(true);
+      setVotedFor(name);
+      showToast('투표 완료! 감사합니다 💕');
+    } catch {
+      showToast('투표에 실패했어요. 다시 시도해주세요.');
+    }
+  }, [hasVoted, shareId, voterName, voteMutation]);
 
   const handleCopyLink = useCallback(() => {
     const link = `${window.location.origin}/naming/vote/${shareId}`;
@@ -63,9 +63,34 @@ export default function VotePage({ params }: { params: { shareId: string } }) {
     });
   }, [shareId]);
 
-  const totalVotes = data ? Object.values(data.votes).reduce((a, b) => a + b, 0) : 0;
+  const handleKakaoShare = useCallback(() => {
+    const voteUrl = `${window.location.origin}/naming/vote/${shareId}`;
+    const cands = sessionQuery.data?.candidates ?? [];
+    if (window.Kakao?.isInitialized?.()) {
+      const nameList = cands.slice(0, 3).map((c: SuggestedName) => c.name).join(', ');
+      window.Kakao.Share.sendDefault({
+        objectType: 'feed',
+        content: {
+          title: '우리 아이 이름, 어떤 게 좋을까요? 🍼',
+          description: `후보: ${nameList}${cands.length > 3 ? ' 외' : ''} — 투표해주세요!`,
+          imageUrl: `${window.location.origin}/og-vote.png`,
+          link: { mobileWebUrl: voteUrl, webUrl: voteUrl },
+        },
+        buttons: [
+          { title: '투표하러 가기', link: { mobileWebUrl: voteUrl, webUrl: voteUrl } },
+        ],
+      });
+    } else {
+      navigator.clipboard.writeText(voteUrl).then(() => {
+        showToast('카카오톡 연결이 안 돼요. 링크가 복사됐어요!');
+      }).catch(() => {
+        showToast(`링크: ${voteUrl}`);
+      });
+    }
+  }, [shareId, sessionQuery.data]);
 
-  if (loading) {
+  // Loading
+  if (sessionQuery.isLoading) {
     return (
       <div className="min-h-screen bg-ivory flex items-center justify-center">
         <div className="text-center">
@@ -76,7 +101,8 @@ export default function VotePage({ params }: { params: { shareId: string } }) {
     );
   }
 
-  if (!data) {
+  // Not found / expired
+  if (!sessionQuery.data) {
     return (
       <div className="min-h-screen bg-ivory flex items-center justify-center px-4">
         <div className="text-center">
@@ -87,6 +113,8 @@ export default function VotePage({ params }: { params: { shareId: string } }) {
       </div>
     );
   }
+
+  const { candidates, voteCounts, voters, totalVotes } = sessionQuery.data;
 
   return (
     <div className="min-h-screen bg-ivory pb-24">
@@ -100,25 +128,45 @@ export default function VotePage({ params }: { params: { shareId: string } }) {
       </div>
 
       <div className="max-w-lg mx-auto px-4 -mt-4 space-y-4">
+        {/* Voter name input */}
+        {!hasVoted && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-white rounded-2xl shadow-md p-4"
+          >
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              투표자 이름 (선택)
+            </label>
+            <input
+              type="text"
+              value={voterName}
+              onChange={e => setVoterName(e.target.value)}
+              placeholder="예: 엄마, 할머니, 이모..."
+              className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-transparent"
+            />
+          </motion.div>
+        )}
+
         {/* Vote status */}
-        {data.hasVoted && (
+        {hasVoted && (
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             className="bg-green-50 border border-green-200 rounded-2xl p-4 text-center"
           >
             <p className="text-green-700 font-medium text-sm">
-              ✅ <strong>{data.votedFor}</strong>에 투표하셨어요! 총 {totalVotes}표 참여 중
+              ✅ <strong>{votedFor}</strong>에 투표하셨어요! 총 {totalVotes}표 참여 중
             </p>
           </motion.div>
         )}
 
         {/* Candidate cards */}
-        {data.candidates.map((candidate, i) => {
-          const voteCount = data.votes[candidate.name] ?? 0;
+        {candidates.map((candidate: SuggestedName, i: number) => {
+          const voteCount = voteCounts[candidate.name] ?? 0;
           const pct = totalVotes > 0 ? Math.round((voteCount / totalVotes) * 100) : 0;
           const elementColor = getElementColor(candidate.element ?? 'wood');
-          const isVotedFor = data.votedFor === candidate.name;
+          const isVotedFor = votedFor === candidate.name;
 
           return (
             <motion.div
@@ -144,6 +192,16 @@ export default function VotePage({ params }: { params: { shareId: string } }) {
                   </div>
                 </div>
 
+                {/* Saju score */}
+                {candidate.sajuScore && (
+                  <div className="flex items-center gap-1 mb-2">
+                    <span className="text-sm font-medium" style={{ color: elementColor }}>
+                      사주 적합도 {candidate.sajuScore}점
+                    </span>
+                    <span className="text-yellow-400">⭐</span>
+                  </div>
+                )}
+
                 <p className="text-sm text-gray-600 mb-3 leading-relaxed">{candidate.reasonShort}</p>
 
                 {/* Progress bar */}
@@ -166,33 +224,70 @@ export default function VotePage({ params }: { params: { shareId: string } }) {
                 {/* Vote button */}
                 <button
                   onClick={() => handleVote(candidate.name)}
-                  disabled={data.hasVoted}
+                  disabled={hasVoted || voteMutation.isPending}
                   className={
-                    data.hasVoted
+                    hasVoted
                       ? isVotedFor
                         ? 'w-full py-3 rounded-xl text-sm font-medium bg-green-500 text-white cursor-default'
                         : 'w-full py-3 rounded-xl text-sm font-medium bg-gray-100 text-gray-400 cursor-not-allowed'
                       : 'w-full py-3 rounded-xl text-sm font-medium bg-primary-500 text-white hover:bg-primary-600 transition-colors'
                   }
                 >
-                  {data.hasVoted
+                  {hasVoted
                     ? isVotedFor
                       ? '✅ 투표 완료'
                       : '투표 마감'
-                    : '👍 투표하기'}
+                    : voteMutation.isPending
+                      ? '투표 중...'
+                      : '👍 투표하기'}
                 </button>
               </div>
             </motion.div>
           );
         })}
 
-        {/* Share link */}
-        <button
-          onClick={handleCopyLink}
-          className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl border-2 border-secondary-400 text-secondary-500 font-medium hover:bg-secondary-50 transition-colors"
+        {/* Voter list (after voting) */}
+        {hasVoted && voters.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-white rounded-2xl shadow-md p-5"
+          >
+            <h3 className="font-bold text-gray-800 mb-3">📋 투표 현황</h3>
+            <div className="space-y-2">
+              {voters.map((v, i) => (
+                <div key={i} className="flex items-center justify-between text-sm py-1.5 border-b border-gray-50 last:border-0">
+                  <span className="text-gray-600">{v.name}</span>
+                  <span className="font-medium text-primary-600">→ {v.votedFor}</span>
+                </div>
+              ))}
+            </div>
+          </motion.div>
+        )}
+
+        {/* Share buttons */}
+        <div className="flex gap-3">
+          <button
+            onClick={handleKakaoShare}
+            className="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-2xl bg-[#FEE500] text-[#191919] font-medium hover:brightness-95 transition-all"
+          >
+            💬 카카오톡 공유
+          </button>
+          <button
+            onClick={handleCopyLink}
+            className="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-2xl border-2 border-secondary-400 text-secondary-700 font-medium hover:bg-secondary-50 transition-colors"
+          >
+            🔗 링크 복사
+          </button>
+        </div>
+
+        {/* Bottom CTA */}
+        <a
+          href="/naming"
+          className="block w-full text-center py-3 rounded-2xl border-2 border-primary-300 text-primary-600 font-medium hover:bg-primary-50 transition-colors"
         >
-          🔗 링크 공유하기
-        </button>
+          🍼 나도 이름 추천받기
+        </a>
       </div>
 
       {/* Toast */}

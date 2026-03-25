@@ -1,21 +1,23 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
+import { createClient } from '@/lib/supabase/client';
 
-type Grade = 'B' | 'A' | 'S' | 'SS' | 'SSS';
+type Grade = 'N' | 'R' | 'SR' | 'SSR' | 'UR' | 'SSS';
 
 const GRADE_COLORS: Record<Grade, string> = {
-  B: '#95a5a6',
-  A: '#F9CA24',
-  S: '#a29bfe',
-  SS: '#fd79a8',
-  SSS: '#e17055',
+  N: '#9CA3AF',
+  R: '#3B82F6',
+  SR: '#8B5CF6',
+  SSR: '#F59E0B',
+  UR: '#EF4444',
+  SSS: '#EC4899',
 };
 
 const ELEMENTS = ['🔥 화', '💧 수', '🌿 목', '⚡ 전', '🌙 음', '☀️ 양', '🌪️ 풍', '🪨 토'];
-const GRADES: Grade[] = ['B', 'A', 'S', 'SS', 'SSS'];
+const GRADES: Grade[] = ['N', 'R', 'SR', 'SSR', 'UR', 'SSS'];
 
 interface Card {
   id: number;
@@ -24,17 +26,6 @@ interface Card {
   element: string;
   description: string;
 }
-
-const MOCK_CARDS: Card[] = [
-  { id: 1, name: '청룡', grade: 'SSS', element: '🔥 화', description: '동방의 수호신, 강력한 화염 속성' },
-  { id: 2, name: '백호', grade: 'SS', element: '⚡ 전', description: '서방의 수호신, 번개를 다룬다' },
-  { id: 3, name: '현무', grade: 'SS', element: '💧 수', description: '북방의 수호신, 물의 정령' },
-  { id: 4, name: '주작', grade: 'S', element: '🔥 화', description: '남방의 수호신, 불꽃 새' },
-  { id: 5, name: '기린', grade: 'S', element: '🌿 목', description: '상서로운 짐승, 목 속성 치유' },
-  { id: 6, name: '봉황', grade: 'A', element: '☀️ 양', description: '불사조, 양기 가득한 영물' },
-  { id: 7, name: '해태', grade: 'A', element: '🌙 음', description: '정의의 수호자, 음 속성' },
-  { id: 8, name: '삽살개', grade: 'B', element: '🪨 토', description: '토속 수호견, 잡귀를 쫓는다' },
-];
 
 function GradeBadge({ grade }: { grade: Grade }) {
   return (
@@ -49,9 +40,64 @@ function GradeBadge({ grade }: { grade: Grade }) {
 
 export default function CardsPage() {
   const router = useRouter();
-  const [cards, setCards] = useState<Card[]>(MOCK_CARDS);
+  const [cards, setCards] = useState<Card[]>([]);
+  const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
-  const [form, setForm] = useState({ name: '', grade: 'B' as Grade, element: ELEMENTS[0], description: '' });
+  const [saving, setSaving] = useState(false);
+  const [form, setForm] = useState({ name: '', grade: 'N' as Grade, element: ELEMENTS[0], description: '' });
+
+  const fetchCards = useCallback(async () => {
+    const supabase = createClient();
+    try {
+      const { data, error } = await supabase
+        .from('cards')
+        .select('id, name, grade, element, description')
+        .order('id');
+      if (error) throw error;
+      setCards((data ?? []) as Card[]);
+    } catch {
+      // fallback: keep empty list
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchCards();
+  }, [fetchCards]);
+
+  const handleAdd = async () => {
+    if (!form.name.trim()) { alert('카드 이름을 입력하세요'); return; }
+    setSaving(true);
+    const supabase = createClient();
+    try {
+      const { data, error } = await supabase
+        .from('cards')
+        .insert({ name: form.name.trim(), grade: form.grade, element: form.element, description: form.description })
+        .select()
+        .single();
+      if (error) throw error;
+      setCards((prev) => [...prev, data as Card]);
+      setForm({ name: '', grade: 'N', element: ELEMENTS[0], description: '' });
+      setShowModal(false);
+    } catch {
+      alert('카드 저장 중 오류가 발생했습니다');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDelete = async (card: Card) => {
+    if (!confirm(`"${card.name}" 카드를 삭제하시겠습니까?`)) return;
+    const supabase = createClient();
+    try {
+      const { error } = await supabase.from('cards').delete().eq('id', card.id);
+      if (error) throw error;
+      setCards((prev) => prev.filter((c) => c.id !== card.id));
+    } catch {
+      alert('카드 삭제 중 오류가 발생했습니다');
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gray-50 pb-10">
@@ -82,39 +128,46 @@ export default function CardsPage() {
             <span className="col-span-2 text-right">관리</span>
           </div>
 
-          <AnimatePresence>
-            {cards.map((card, i) => (
-              <motion.div
-                key={card.id}
-                initial={{ opacity: 0, x: -10 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: 10 }}
-                transition={{ delay: i * 0.04 }}
-                className="px-4 py-3 border-b border-gray-50 last:border-0 grid grid-cols-12 gap-2 items-center"
-              >
-                <div className="col-span-2">
-                  <GradeBadge grade={card.grade} />
-                </div>
-                <div className="col-span-3 text-sm font-bold text-gray-800">{card.name}</div>
-                <div className="col-span-2 text-sm">{card.element}</div>
-                <div className="col-span-3 text-xs text-gray-400 truncate">{card.description}</div>
-                <div className="col-span-2 flex gap-1 justify-end">
-                  <button
-                    onClick={() => alert(`${card.name} 편집`)}
-                    className="text-xs text-blue-500 hover:text-blue-700 font-medium px-1"
-                  >
-                    수정
-                  </button>
-                  <button
-                    onClick={() => alert(`${card.name} 삭제`)}
-                    className="text-xs text-red-400 hover:text-red-600 font-medium px-1"
-                  >
-                    삭제
-                  </button>
-                </div>
-              </motion.div>
-            ))}
-          </AnimatePresence>
+          {loading ? (
+            <div className="py-12 text-center text-gray-400 text-sm">불러오는 중...</div>
+          ) : (
+            <AnimatePresence>
+              {cards.map((card, i) => (
+                <motion.div
+                  key={card.id}
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: 10 }}
+                  transition={{ delay: i * 0.04 }}
+                  className="px-4 py-3 border-b border-gray-50 last:border-0 grid grid-cols-12 gap-2 items-center"
+                >
+                  <div className="col-span-2">
+                    <GradeBadge grade={card.grade} />
+                  </div>
+                  <div className="col-span-3 text-sm font-bold text-gray-800">{card.name}</div>
+                  <div className="col-span-2 text-sm">{card.element}</div>
+                  <div className="col-span-3 text-xs text-gray-400 truncate">{card.description}</div>
+                  <div className="col-span-2 flex gap-1 justify-end">
+                    <button
+                      onClick={() => alert(`${card.name} 편집`)}
+                      className="text-xs text-blue-500 hover:text-blue-700 font-medium px-1"
+                    >
+                      수정
+                    </button>
+                    <button
+                      onClick={() => handleDelete(card)}
+                      className="text-xs text-red-400 hover:text-red-600 font-medium px-1"
+                    >
+                      삭제
+                    </button>
+                  </div>
+                </motion.div>
+              ))}
+              {cards.length === 0 && (
+                <div className="py-12 text-center text-gray-400 text-sm">카드가 없습니다</div>
+              )}
+            </AnimatePresence>
+          )}
         </div>
       </div>
 
@@ -195,10 +248,11 @@ export default function CardsPage() {
                   취소
                 </button>
                 <button
-                  onClick={() => { alert('저장됨'); setShowModal(false); }}
-                  className="flex-1 bg-purple-600 text-white font-bold py-2.5 rounded-xl text-sm hover:bg-purple-700 transition-colors"
+                  onClick={handleAdd}
+                  disabled={saving}
+                  className="flex-1 bg-purple-600 text-white font-bold py-2.5 rounded-xl text-sm hover:bg-purple-700 transition-colors disabled:opacity-50"
                 >
-                  저장
+                  {saving ? '저장중...' : '저장'}
                 </button>
               </div>
             </motion.div>

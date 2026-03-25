@@ -28,7 +28,10 @@ export const userRouter = createTRPCRouter({
           .from('users')
           .update(input)
           .eq('id', ctx.user.id);
-      } catch (e) { /* table may not exist */ }
+      } catch (e) {
+        console.warn('[user] updateProfile failed:', e);
+        // table may not exist
+      }
       return { success: true };
     }),
 

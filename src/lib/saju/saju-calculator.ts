@@ -1,4 +1,5 @@
 import type { SajuResult, SajuPillar, Element } from '@/types';
+import { calculateSipsung } from '@/lib/saju/sipsung-calculator';
 
 // 천간 (Heavenly Stems)
 const HEAVENLY_STEMS = ['갑', '을', '병', '정', '무', '기', '경', '신', '임', '계'];
@@ -13,7 +14,6 @@ export function calculateSaju(birthDate: string, birthTime?: string): SajuResult
   const date = new Date(birthDate);
   const year = date.getFullYear();
   const month = date.getMonth() + 1;
-  const day = date.getDate();
 
   // Year Pillar calculation
   const yearStemIndex = ((year - 4) % 10 + 10) % 10;
@@ -29,14 +29,8 @@ export function calculateSaju(birthDate: string, birthTime?: string): SajuResult
   const dayStemIndex = ((dayNumber % 10) + 10) % 10;
   const dayBranchIndex = ((dayNumber % 12) + 12) % 12;
 
-  // Hour Pillar
-  let hourStemIndex = 0;
-  let hourBranchIndex = 0;
-  if (birthTime) {
-    const [h] = birthTime.split(':').map(Number);
-    hourBranchIndex = Math.floor((h + 1) / 2) % 12;
-    hourStemIndex = ((dayStemIndex % 5) * 2 + hourBranchIndex) % 10;
-  }
+  // 시간 미입력(null/undefined/"모름") 판별
+  const hasTime = birthTime != null && birthTime !== '' && birthTime !== '모름';
 
   const yearPillar: SajuPillar = {
     heavenlyStem: HEAVENLY_STEMS[yearStemIndex],
@@ -59,20 +53,30 @@ export function calculateSaju(birthDate: string, birthTime?: string): SajuResult
     yin_yang: HEAVENLY_STEMS_YIN[dayStemIndex] ? 'yin' : 'yang',
   };
 
-  const hourPillar: SajuPillar = {
-    heavenlyStem: HEAVENLY_STEMS[hourStemIndex],
-    earthlyBranch: EARTHLY_BRANCHES[hourBranchIndex],
-    element: HEAVENLY_STEMS_ELEMENT[hourStemIndex],
-    yin_yang: HEAVENLY_STEMS_YIN[hourStemIndex] ? 'yin' : 'yang',
-  };
+  // Hour Pillar: 시간 미입력 시 null 처리
+  let hourPillar: SajuPillar | null = null;
+  let hourBranchIndex = 0;
+  if (hasTime) {
+    const [h] = birthTime!.split(':').map(Number);
+    hourBranchIndex = Math.floor((h + 1) / 2) % 12;
+    const hourStemIndex = ((dayStemIndex % 5) * 2 + hourBranchIndex) % 10;
+    hourPillar = {
+      heavenlyStem: HEAVENLY_STEMS[hourStemIndex],
+      earthlyBranch: EARTHLY_BRANCHES[hourBranchIndex],
+      element: HEAVENLY_STEMS_ELEMENT[hourStemIndex],
+      yin_yang: HEAVENLY_STEMS_YIN[hourStemIndex] ? 'yin' : 'yang',
+    };
+  }
 
-  // Count elements
-  const allElements = [
+  // 오행 카운트: 시주가 없으면 년/월/일주만으로 분석
+  const allElements: Element[] = [
     yearPillar.element, EARTHLY_BRANCHES_ELEMENT[yearBranchIndex],
     monthPillar.element, EARTHLY_BRANCHES_ELEMENT[monthBranchIndex],
     dayPillar.element, EARTHLY_BRANCHES_ELEMENT[dayBranchIndex],
-    hourPillar.element, EARTHLY_BRANCHES_ELEMENT[hourBranchIndex],
   ];
+  if (hourPillar !== null) {
+    allElements.push(hourPillar.element, EARTHLY_BRANCHES_ELEMENT[hourBranchIndex]);
+  }
 
   const elementCounts: Record<Element, number> = {
     wood: 0, fire: 0, earth: 0, metal: 0, water: 0,
@@ -85,7 +89,7 @@ export function calculateSaju(birthDate: string, birthTime?: string): SajuResult
   const strongElements = sortedElements.slice(0, 2).map(e => e[0] as Element);
   const weakElements = sortedElements.slice(3).map(e => e[0] as Element);
 
-  return {
+  const partialResult: SajuResult = {
     yearPillar,
     monthPillar,
     dayPillar,
@@ -97,6 +101,12 @@ export function calculateSaju(birthDate: string, birthTime?: string): SajuResult
     overallEnergy: Math.round(50 + (elementCounts[mainElement] - 2) * 10),
     birthDate,
     birthTime,
+    hourPillarExcluded: !hasTime,
+  };
+
+  return {
+    ...partialResult,
+    sipsung: calculateSipsung(partialResult),
   };
 }
 

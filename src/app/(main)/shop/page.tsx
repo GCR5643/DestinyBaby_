@@ -19,7 +19,8 @@ export default function ShopPage() {
         <p className="text-sm text-gray-700">특별한 카드 팩을 구매해보세요</p>
       </div>
 
-      <div className="max-w-lg mx-auto px-4 mt-6 space-y-4">
+      <div className="max-w-lg md:max-w-2xl lg:max-w-3xl mx-auto px-4 md:px-8 mt-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {SHOP_ITEMS.map((item, i) => (
           <motion.div
             key={item.id}
@@ -56,6 +57,7 @@ export default function ShopPage() {
             </div>
           </motion.div>
         ))}
+        </div>
       </div>
     </div>
   );

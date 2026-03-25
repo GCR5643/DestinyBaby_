@@ -44,11 +44,12 @@ export function getElementEmoji(element: string): string {
 
 export function getGradeColor(grade: string): string {
   const colors: Record<string, string> = {
-    B: '#95a5a6',
-    A: '#F9CA24',
-    S: '#a29bfe',
-    SS: '#fd79a8',
-    SSS: '#e17055',
+    N: '#95a5a6',    // Normal: gray
+    R: '#4a90d9',    // Rare: blue
+    SR: '#a29bfe',   // Super Rare: purple
+    SSR: '#F9CA24',  // Super Super Rare: gold/yellow
+    UR: '#dc2626',   // Ultra Rare: red/crimson
+    SSS: 'linear-gradient(135deg, #f093fb 0%, #f5576c 50%, #4facfe 100%)', // Legendary: rainbow
   };
   return colors[grade] || '#95a5a6';
 }

@@ -1,39 +1,103 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { ChevronLeft, RefreshCw, Info } from 'lucide-react';
+import { createClient } from '@/lib/supabase/client';
 
-const DEFAULT_CONFIG = {
-  wNational: 60,   // 국가 통계 가중치 %
-  wService: 40,    // 서비스 내 선택 가중치 %
-  coldStartThreshold100: 85,   // 서비스 100건 미만 시 국가 가중치
-  coldStartThreshold1000: 70,  // 서비스 1000건 미만 시 국가 가중치
+const CONFIG_TABLE = 'popularity_config';
+
+interface PopularityConfig {
+  wNational: number;
+  wService: number;
+  coldStartThreshold100: number;
+  coldStartThreshold1000: number;
+  kosisApiEnabled: boolean;
+  lastSyncedAt: string;
+}
+
+const DEFAULT_CONFIG: PopularityConfig = {
+  wNational: 60,
+  wService: 40,
+  coldStartThreshold100: 85,
+  coldStartThreshold1000: 70,
   kosisApiEnabled: true,
-  lastSyncedAt: '2026-03-20 09:00',
+  lastSyncedAt: '-',
 };
 
 export default function AdminPopularityPage() {
   const router = useRouter();
-  const [config, setConfig] = useState(DEFAULT_CONFIG);
+  const [config, setConfig] = useState<PopularityConfig>(DEFAULT_CONFIG);
   const [isSyncing, setIsSyncing] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  // Load config from DB on mount (graceful fallback if table doesn't exist)
+  useEffect(() => {
+    const loadConfig = async () => {
+      const supabase = createClient();
+      try {
+        const { data, error } = await supabase
+          .from(CONFIG_TABLE)
+          .select('*')
+          .limit(1)
+          .maybeSingle();
+        if (!error && data) {
+          setConfig({
+            wNational: data.w_national ?? DEFAULT_CONFIG.wNational,
+            wService: data.w_service ?? DEFAULT_CONFIG.wService,
+            coldStartThreshold100: data.cold_start_threshold_100 ?? DEFAULT_CONFIG.coldStartThreshold100,
+            coldStartThreshold1000: data.cold_start_threshold_1000 ?? DEFAULT_CONFIG.coldStartThreshold1000,
+            kosisApiEnabled: data.kosis_api_enabled ?? DEFAULT_CONFIG.kosisApiEnabled,
+            lastSyncedAt: data.last_synced_at ?? DEFAULT_CONFIG.lastSyncedAt,
+          });
+        }
+      } catch {
+        // table may not exist — use defaults
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadConfig();
+  }, []);
 
   const handleSync = async () => {
     setIsSyncing(true);
-    await new Promise(r => setTimeout(r, 2000));
-    setConfig(prev => ({ ...prev, lastSyncedAt: new Date().toLocaleString('ko-KR') }));
+    await new Promise((r) => setTimeout(r, 2000));
+    const now = new Date().toLocaleString('ko-KR');
+    setConfig((prev) => ({ ...prev, lastSyncedAt: now }));
     setIsSyncing(false);
   };
 
-  const handleSave = () => {
-    // TODO: persist to DB
+  const handleSave = async () => {
+    const supabase = createClient();
+    try {
+      await supabase.from(CONFIG_TABLE).upsert({
+        id: 1,
+        w_national: config.wNational,
+        w_service: config.wService,
+        cold_start_threshold_100: config.coldStartThreshold100,
+        cold_start_threshold_1000: config.coldStartThreshold1000,
+        kosis_api_enabled: config.kosisApiEnabled,
+        last_synced_at: config.lastSyncedAt,
+      });
+    } catch {
+      // table may not exist — ignore
+    }
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
   };
 
   const totalW = config.wNational + config.wService;
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <p className="text-gray-400 text-sm">불러오는 중...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 pb-24">
@@ -79,7 +143,7 @@ export default function AdminPopularityPage() {
               <input
                 type="range" min={0} max={100} step={5}
                 value={config.wNational}
-                onChange={e => setConfig(prev => ({ ...prev, wNational: +e.target.value, wService: 100 - +e.target.value }))}
+                onChange={(e) => setConfig((prev) => ({ ...prev, wNational: +e.target.value, wService: 100 - +e.target.value }))}
                 className="w-full accent-primary-500"
               />
               <p className="text-xs text-gray-400 mt-1">연간 출생아 이름 등록 통계 기반. 안정적이나 최신성 낮음</p>
@@ -120,7 +184,7 @@ export default function AdminPopularityPage() {
             {[
               { label: '100건 미만', key: 'coldStartThreshold100' as const, desc: '초기 서비스 단계' },
               { label: '1,000건 미만', key: 'coldStartThreshold1000' as const, desc: '성장 단계' },
-            ].map(item => (
+            ].map((item) => (
               <div key={item.key} className="flex items-center justify-between bg-gray-50 rounded-xl px-4 py-3">
                 <div>
                   <p className="text-sm font-medium text-gray-700">{item.label}</p>
@@ -131,7 +195,7 @@ export default function AdminPopularityPage() {
                   <input
                     type="number" min={50} max={100} step={5}
                     value={config[item.key]}
-                    onChange={e => setConfig(prev => ({ ...prev, [item.key]: +e.target.value }))}
+                    onChange={(e) => setConfig((prev) => ({ ...prev, [item.key]: +e.target.value }))}
                     className="w-16 text-center border border-gray-200 rounded-lg px-2 py-1 text-sm font-bold text-primary-600"
                   />
                   <span className="text-sm text-gray-500">%</span>

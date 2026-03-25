@@ -6,7 +6,7 @@ import CardDisplay from './CardDisplay';
 import type { UserCard, Grade } from '@/types';
 import { cn } from '@/lib/utils';
 
-const GRADES: Grade[] = ['B', 'A', 'S', 'SS', 'SSS'];
+const GRADES: Grade[] = ['N', 'R', 'SR', 'SSR', 'UR', 'SSS'];
 
 interface CardCollectionProps {
   userCards: UserCard[];

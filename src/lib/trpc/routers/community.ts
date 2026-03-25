@@ -35,7 +35,8 @@ export const communityRouter = createTRPCRouter({
         }
 
         return { posts: data ?? [], total: count ?? 0 };
-      } catch {
+      } catch (e) {
+        console.warn('[community] getPosts failed:', e);
         return { posts: MOCK_POSTS, total: MOCK_POSTS.length };
       }
     }),
@@ -63,7 +64,8 @@ export const communityRouter = createTRPCRouter({
           .then(() => {});
 
         return data;
-      } catch {
+      } catch (e) {
+        console.warn('[community] getPost failed:', e);
         return MOCK_POSTS.find(p => p.id === input.id) ?? null;
       }
     }),
@@ -92,19 +94,9 @@ export const communityRouter = createTRPCRouter({
 
         if (error) throw error;
         return data;
-      } catch {
-        // Return a mock created post so UI doesn't crash
-        return {
-          id: String(Date.now()),
-          user_id: ctx.user.id,
-          category: input.category,
-          title: input.title,
-          content: input.content,
-          like_count: 0,
-          comment_count: 0,
-          view_count: 0,
-          created_at: new Date().toISOString(),
-        };
+      } catch (e) {
+        console.warn('[community] createPost failed:', e);
+        throw e;
       }
     }),
 
@@ -141,7 +133,8 @@ export const communityRouter = createTRPCRouter({
 
           return { liked: true };
         }
-      } catch {
+      } catch (e) {
+        console.warn('[community] toggleLike failed:', e);
         return { liked: false };
       }
     }),
@@ -182,7 +175,8 @@ export const communityRouter = createTRPCRouter({
           });
 
         return data;
-      } catch {
+      } catch (e) {
+        console.warn('[community] addComment failed:', e);
         return {
           id: String(Date.now()),
           post_id: input.postId,
@@ -205,7 +199,8 @@ export const communityRouter = createTRPCRouter({
 
         if (error) return [];
         return data ?? [];
-      } catch {
+      } catch (e) {
+        console.warn('[community] getComments failed:', e);
         return [];
       }
     }),

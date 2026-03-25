@@ -15,13 +15,18 @@ export default function LoginPage() {
 
   const handleOAuth = async (provider: 'google' | 'kakao') => {
     setIsLoading(true);
+    setError('');
     const supabase = createClient();
     const { error } = await supabase.auth.signInWithOAuth({
       provider,
       options: { redirectTo: `${window.location.origin}/auth/callback` },
     });
-    if (error) setError(error.message);
-    setIsLoading(false);
+    if (error) {
+      // OAuth 실패 시에만 로딩 해제 (성공 시엔 브라우저가 OAuth 페이지로 이동하므로 로딩 유지)
+      setError(error.message);
+      setIsLoading(false);
+    }
+    // 에러가 없으면 브라우저가 OAuth provider로 리다이렉트 중이므로 isLoading을 true로 유지
   };
 
   const handleGuest = () => {

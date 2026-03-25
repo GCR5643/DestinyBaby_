@@ -12,6 +12,8 @@ import { cn } from '@/lib/utils';
 import { DemoBanner } from '@/components/naming/DemoBanner';
 
 interface NamingFormData {
+  surname: string;
+  surnameHanja: string;
   parent1BirthDate: string;
   parent1BirthTime: string;
   parent2BirthDate: string;
@@ -34,19 +36,34 @@ function getHangryeolPreview(chars: string[], position: '앞' | '뒤' | '모름'
   }).slice(0, 6).join(', ');
 }
 
+const LOADING_MESSAGES = [
+  'AI가 이름을 찾고 있어요...',
+  '행운의 기운을 담는 중...',
+  '아이의 운명을 비추는 중...',
+  '보석 같은 이름 찾는 중...',
+  '축복의 이름을 고르는 중...',
+  '거의 다 됐어요...',
+];
+
 export default function NamingPage() {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
+  const [loadingMsgIndex, setLoadingMsgIndex] = useState(0);
   const [isGuest, setIsGuest] = useState(false);
   const [useHangryeol, setUseHangryeol] = useState(false);
   const [hangryeolChars, setHangryeolChars] = useState<string[]>([]);
   const [hangryeolInput, setHangryeolInput] = useState('');
   const [hangryeolPosition, setHangryeolPosition] = useState<'앞' | '뒤' | '모름'>('뒤');
-  const { register, handleSubmit, watch, control, formState: { errors } } = useForm<NamingFormData>({
+  const [useLuckyDate, setUseLuckyDate] = useState(false);
+  const [selectedLuckyDateId, setSelectedLuckyDateId] = useState<string | null>(null);
+  const { register, handleSubmit, watch, control, setValue, formState: { errors } } = useForm<NamingFormData>({
     defaultValues: { gender: 'unknown' }
   });
   const generateNames = trpc.naming.generateNames.useMutation();
   const generateNamesPublic = trpc.naming.generateNamesPublic.useMutation();
+  const { data: luckyDates } = trpc.birthdate.getMyLuckyDates.useQuery(undefined, {
+    retry: false,
+  });
   const { setParent1Saju, setParent2Saju } = useNamingStore();
 
   useEffect(() => {
@@ -55,10 +72,23 @@ export default function NamingPage() {
     setIsGuest(guestCookie?.split('=')[1] === 'true');
   }, []);
 
+  useEffect(() => {
+    if (!isLoading) {
+      setLoadingMsgIndex(0);
+      return;
+    }
+    const interval = setInterval(() => {
+      setLoadingMsgIndex(prev => Math.min(prev + 1, LOADING_MESSAGES.length - 1));
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [isLoading]);
+
   const onSubmit = async (data: NamingFormData) => {
     setIsLoading(true);
     try {
       const payload = {
+        surname: data.surname || '',
+        surnameHanja: data.surnameHanja || undefined,
         parent1BirthDate: data.parent1BirthDate,
         parent1BirthTime: data.parent1BirthTime || undefined,
         parent2BirthDate: data.parent2BirthDate || undefined,
@@ -75,6 +105,7 @@ export default function NamingPage() {
       if (isGuest) {
         const result = await generateNamesPublic.mutateAsync(payload);
         sessionStorage.setItem('guest-naming-result', JSON.stringify(result.names));
+        sessionStorage.setItem('guest-naming-payload', JSON.stringify(payload));
         router.push('/naming/result/guest');
       } else {
         const result = await generateNames.mutateAsync(payload);
@@ -82,6 +113,8 @@ export default function NamingPage() {
       }
     } catch (error) {
       console.error(error);
+      const message = error instanceof Error ? error.message : '이름 추천 중 오류가 발생했습니다. 다시 시도해주세요.';
+      alert(message);
     } finally {
       setIsLoading(false);
     }
@@ -98,14 +131,14 @@ export default function NamingPage() {
               <Sparkles className="w-8 h-8 text-gold-400" />
             </div>
           </div>
-          <h1 className="text-2xl font-bold mb-2">AI 작명소</h1>
+          <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold mb-2">AI 작명소</h1>
           <p className="text-base opacity-90 mb-1">사주로 찾아주는 우리 아이 이름</p>
           <p className="text-sm opacity-75">전통 명리학 × 최신 AI 기술</p>
         </motion.div>
       </div>
 
       {/* Form */}
-      <div className="max-w-lg mx-auto px-4 -mt-6">
+      <div className="max-w-lg md:max-w-2xl lg:max-w-3xl mx-auto px-4 md:px-8 -mt-6">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -113,6 +146,42 @@ export default function NamingPage() {
           className="bg-white rounded-2xl shadow-lg p-6"
         >
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+            {/* 비로그인 배너 */}
+            {isGuest && (
+              <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 flex items-start gap-3">
+                <span className="text-lg flex-shrink-0">🔐</span>
+                <p className="text-sm text-blue-700 font-medium">로그인하면 추천 결과를 저장할 수 있어요</p>
+              </div>
+            )}
+            {/* 성씨 입력 */}
+            <div>
+              <h3 className="font-semibold text-gray-700 mb-3">✏️ 아기 성씨</h3>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs text-gray-500 mb-1 block">성씨 *</label>
+                  <input
+                    type="text"
+                    {...register('surname', { required: '성씨를 입력해주세요' })}
+                    placeholder="예: 김"
+                    maxLength={2}
+                    className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-primary-400"
+                  />
+                  {errors.surname && <p className="text-red-500 text-xs mt-1">{errors.surname.message}</p>}
+                </div>
+                <div>
+                  <label className="text-xs text-gray-500 mb-1 block">성씨 한자 <span className="text-gray-400">(선택)</span></label>
+                  <input
+                    type="text"
+                    {...register('surnameHanja')}
+                    placeholder="예: 金"
+                    maxLength={2}
+                    className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-primary-400"
+                  />
+                  <p className="text-xs text-gray-400 mt-1">한자를 아시면 입력해주세요</p>
+                </div>
+              </div>
+            </div>
+
             {/* Parent 1 */}
             <div>
               <h3 className="font-semibold text-gray-700 mb-3">👨 아버지 / 부모1 정보</h3>
@@ -176,30 +245,119 @@ export default function NamingPage() {
             {/* Baby */}
             <div>
               <h3 className="font-semibold text-gray-700 mb-3">👶 아기 정보</h3>
-              <div className="grid grid-cols-2 gap-3 mb-3">
-                <div>
-                  <label className="text-xs text-gray-500 mb-1 block">생년월일 (예정일)</label>
-                  <Controller
-                    name="babyBirthDate"
-                    control={control}
-                    render={({ field }) => (
-                      <KoreanDatePicker
-                        value={field.value || ''}
-                        onChange={field.onChange}
-                        placeholder="생년월일 선택"
-                      />
-                    )}
-                  />
+
+              {/* 길일 토글 - 저장된 길일이 있을 때만 표시 */}
+              {luckyDates && luckyDates.length > 0 && (
+                <div className="mb-4">
+                  <div className="flex items-center gap-3 mb-3">
+                    <button
+                      type="button"
+                      onClick={() => setUseLuckyDate(false)}
+                      className={cn(
+                        'flex-1 py-2.5 rounded-xl text-sm font-bold transition-all',
+                        !useLuckyDate ? 'bg-primary-500 text-white' : 'bg-gray-100 text-gray-600'
+                      )}
+                    >
+                      직접 입력
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setUseLuckyDate(true)}
+                      className={cn(
+                        'flex-1 py-2.5 rounded-xl text-sm font-bold transition-all',
+                        useLuckyDate ? 'bg-primary-500 text-white' : 'bg-gray-100 text-gray-600'
+                      )}
+                    >
+                      저장된 길일 ({luckyDates.length})
+                    </button>
+                  </div>
+
+                  {useLuckyDate && (
+                    <div className="space-y-2">
+                      {luckyDates.map(ld => (
+                        <button
+                          key={ld.id}
+                          type="button"
+                          onClick={() => {
+                            setSelectedLuckyDateId(ld.id);
+                            setValue('babyBirthDate', ld.date);
+                            if (ld.time) setValue('babyBirthTime', ld.time);
+                          }}
+                          className={cn(
+                            'w-full text-left p-3 rounded-xl border transition-all',
+                            selectedLuckyDateId === ld.id
+                              ? 'border-primary-500 bg-primary-50'
+                              : 'border-gray-200 bg-white'
+                          )}
+                        >
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <span className="font-bold text-gray-800">{ld.date}</span>
+                              {ld.time && <span className="text-gray-500 text-sm ml-2">{ld.time}</span>}
+                            </div>
+                            <div className="flex items-center gap-2">
+                              {ld.score > 0 && (
+                                <span className="text-xs bg-primary-100 text-primary-700 px-2 py-0.5 rounded-full font-bold">
+                                  {ld.score}점
+                                </span>
+                              )}
+                              {selectedLuckyDateId === ld.id && (
+                                <span className="text-primary-500">✓</span>
+                              )}
+                            </div>
+                          </div>
+                          {ld.status !== 'candidate' && (
+                            <span className={cn(
+                              'text-xs mt-1 inline-block px-2 py-0.5 rounded-full',
+                              ld.status === 'confirmed' ? 'bg-green-100 text-green-700' :
+                              ld.status === 'selected' ? 'bg-blue-100 text-blue-700' :
+                              'bg-gray-100 text-gray-500'
+                            )}>
+                              {ld.status === 'confirmed' ? '확정' : ld.status === 'selected' ? '선택됨' : '지남'}
+                            </span>
+                          )}
+                        </button>
+                      ))}
+                      <p className="text-xs text-gray-400 text-center mt-2">
+                        길일은 프로필 → 내 예비 사주 목록에서 관리할 수 있어요
+                      </p>
+                    </div>
+                  )}
                 </div>
-                <div>
-                  <label className="text-xs text-gray-500 mb-1 block">태어난 시간</label>
-                  <input
-                    type="time"
-                    {...register('babyBirthTime')}
-                    className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-primary-400"
-                  />
+              )}
+
+              {/* 직접 입력 - useLuckyDate가 false이거나 길일 목록이 없을 때 */}
+              {!useLuckyDate && (
+                <div className="grid grid-cols-2 gap-3 mb-3">
+                  <div>
+                    <label className="text-xs text-gray-500 mb-1 block">생년월일 (예정일)</label>
+                    <Controller
+                      name="babyBirthDate"
+                      control={control}
+                      render={({ field }) => (
+                        <KoreanDatePicker
+                          value={field.value || ''}
+                          onChange={field.onChange}
+                          placeholder="생년월일 선택"
+                        />
+                      )}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-500 mb-1 block">태어난 시간</label>
+                    <input
+                      type="time"
+                      {...register('babyBirthTime')}
+                      className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-primary-400"
+                    />
+                  </div>
                 </div>
-              </div>
+              )}
+
+              {/* 길일 선택 모드일 때 숨겨진 입력으로 폼 값 유지 */}
+              {useLuckyDate && (
+                <div className="mb-3" />
+              )}
 
               {/* Gender */}
               <div>
@@ -352,7 +510,7 @@ export default function NamingPage() {
               {isLoading ? (
                 <>
                   <div className="w-5 h-5 border-2 border-white/40 border-t-white rounded-full animate-spin" />
-                  AI가 이름을 찾고 있어요...
+                  {LOADING_MESSAGES[loadingMsgIndex]}
                 </>
               ) : (
                 <>
@@ -366,18 +524,28 @@ export default function NamingPage() {
 
         {/* Review CTA */}
         <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.4 }}
-          className="mt-4 text-center"
+          className="mt-6 bg-gradient-to-br from-secondary-50 to-primary-50 border border-secondary-200 rounded-2xl p-5"
         >
-          <button
-            onClick={() => router.push('/naming/review')}
-            className="flex items-center gap-2 mx-auto text-sm text-gray-500 hover:text-primary-600 transition-colors"
-          >
-            <Search className="w-4 h-4" />
-            이미 이름을 지었나요? 이름 검수하기
-          </button>
+          <div className="text-center">
+            <div className="inline-flex items-center justify-center w-10 h-10 bg-white rounded-full shadow-sm mb-3">
+              <Search className="w-5 h-5 text-secondary-700" />
+            </div>
+            <h3 className="font-bold text-gray-800 text-base mb-1">이미 지은 이름이 있다면?</h3>
+            <p className="text-sm text-gray-500 mb-4">
+              음양오행, 획수, 발음, 의미를 종합 분석해드려요
+            </p>
+            <motion.button
+              whileTap={{ scale: 0.98 }}
+              onClick={() => router.push('/naming/review')}
+              className="w-full bg-white text-primary-600 border-2 border-primary-200 py-3 rounded-2xl font-bold text-sm flex items-center justify-center gap-2 shadow-sm hover:bg-primary-50 transition-colors"
+            >
+              <Search className="w-4 h-4" />
+              이름 검수하기 (무료)
+            </motion.button>
+          </div>
         </motion.div>
       </div>
     </div>

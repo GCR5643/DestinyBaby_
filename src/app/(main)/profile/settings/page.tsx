@@ -31,19 +31,28 @@ export default function ProfileSettingsPage() {
       }
       alert('저장됨');
     } catch {
-      alert('저장됨');
+      alert('저장 실패. 잠시 후 다시 시도해주세요.');
     }
   };
 
-  const handlePasswordReset = () => {
-    alert('이메일로 비밀번호 재설정 링크를 발송했습니다');
+  const handlePasswordReset = async () => {
+    const email = user?.email;
+    if (!email) {
+      alert('이메일 정보를 찾을 수 없습니다.');
+      return;
+    }
+    try {
+      const supabase = createClient();
+      const { error } = await supabase.auth.resetPasswordForEmail(email);
+      if (error) throw error;
+      alert('이메일로 비밀번호 재설정 링크를 발송했습니다.');
+    } catch {
+      alert('비밀번호 재설정 이메일 발송에 실패했습니다. 잠시 후 다시 시도해주세요.');
+    }
   };
 
   const handleDeleteAccount = () => {
-    const confirmed = confirm('정말로 탈퇴하시겠습니까? 이 작업은 되돌릴 수 없습니다.');
-    if (confirmed) {
-      alert('회원 탈퇴가 처리되었습니다.');
-    }
+    alert('회원 탈퇴를 원하시면 고객센터로 문의해주세요.');
   };
 
   const toggleNotification = (key: keyof typeof notifications) => {

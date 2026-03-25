@@ -4,7 +4,7 @@ export const dynamic = 'force-dynamic';
 
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Settings, CreditCard, LogOut, ChevronRight, Heart, X } from 'lucide-react';
+import { Settings, CreditCard, LogOut, ChevronRight, Heart, X, Calendar, Sparkles, LogIn } from 'lucide-react';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
@@ -21,6 +21,8 @@ export default function ProfilePage() {
   const router = useRouter();
   const { user } = useUserStore();
   const { data: statsData } = trpc.user.getStats.useQuery();
+  const { data: luckyDatesData } = trpc.birthdate.getMyLuckyDates.useQuery();
+  const luckyDateCount = luckyDatesData?.length ?? 0;
 
   // Children state
   const [children, setChildren] = useState<ChildEntry[]>([]);
@@ -31,7 +33,11 @@ export default function ProfilePage() {
   useEffect(() => {
     const stored = localStorage.getItem('my-children');
     if (stored) {
-      setChildren(JSON.parse(stored));
+      try {
+        setChildren(JSON.parse(stored));
+      } catch {
+        localStorage.removeItem('my-children');
+      }
     }
   }, []);
 
@@ -59,11 +65,43 @@ export default function ProfilePage() {
     saveChildren(children.filter(c => c.id !== id));
   };
 
-  const MENU_ITEMS = [
-    { href: '/credits', icon: CreditCard, label: '크레딧 충전', badge: `${user?.credits || 0} 크레딧` },
-    { href: '/profile/settings', icon: Settings, label: '설정' },
-    { href: '/profile/favorites', icon: Heart, label: '즐겨찾기 카드' },
+  const MENU_SECTIONS = [
+    {
+      title: '내 아이 관리',
+      items: [
+        { href: '/profile/lucky-dates', icon: Calendar, label: '내 예비 사주 목록', desc: '길일 관리 · 산부인과 일정 조율', badge: luckyDateCount as number | string | undefined },
+        { href: '/naming/result/guest', icon: Sparkles, label: '이름 후보 관리 (준비중)', desc: '상세 분석 · 비교 · 최종 선택', badge: undefined as number | string | undefined },
+        { href: '/profile/favorites', icon: Heart, label: '즐겨찾기 카드', desc: '운명 카드 컬렉션', badge: undefined as number | string | undefined },
+      ],
+    },
+    {
+      title: '계정',
+      items: [
+        { href: '/credits', icon: CreditCard, label: '크레딧 충전', desc: undefined as string | undefined, badge: `${user?.credits || 0} 크레딧` as number | string | undefined },
+        { href: '/profile/settings', icon: Settings, label: '프로필 · 계정 관리', desc: '닉네임 · 이메일 · 알림 설정', badge: undefined as number | string | undefined },
+      ],
+    },
   ];
+
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-ivory flex flex-col items-center justify-center px-6 pb-24">
+        <div className="w-full max-w-sm md:max-w-md text-center">
+          <div className="w-24 h-24 bg-primary-100 rounded-full flex items-center justify-center mx-auto mb-6">
+            <LogIn className="w-10 h-10 text-primary-500" />
+          </div>
+          <h1 className="text-xl font-bold text-gray-800 mb-2">로그인이 필요해요</h1>
+          <p className="text-gray-500 text-sm mb-8">로그인하고 모든 기능을 이용해보세요</p>
+          <Link
+            href="/login"
+            className="block w-full bg-primary-500 text-white text-center py-4 rounded-2xl font-bold text-base shadow-lg mb-3"
+          >
+            카카오 / 구글 로그인
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-ivory pb-24">
@@ -83,7 +121,7 @@ export default function ProfilePage() {
       </div>
 
       {/* Stats */}
-      <div className="max-w-lg mx-auto px-4 -mt-6">
+      <div className="max-w-lg md:max-w-2xl lg:max-w-3xl mx-auto px-4 md:px-8 -mt-6">
         <div className="bg-white rounded-2xl shadow-md p-4 grid grid-cols-3 gap-2 mb-4">
           {[
             { label: '총 뽑기', value: statsData?.totalPulls ?? user?.total_pulls ?? 0 },
@@ -178,21 +216,36 @@ export default function ProfilePage() {
           )}
         </div>
 
-        {/* Menu */}
-        <div className="bg-white rounded-2xl shadow-sm overflow-hidden mb-4">
-          {MENU_ITEMS.map((item, i) => (
-            <Link key={item.href} href={item.href}
-              className={`flex items-center gap-3 px-4 py-3.5 hover:bg-gray-50 transition-colors ${i > 0 ? 'border-t border-gray-50' : ''}`}
-            >
-              <item.icon className="w-5 h-5 text-gray-500" />
-              <span className="flex-1 text-sm font-medium text-gray-700">{item.label}</span>
-              {item.badge && <span className="text-xs text-primary-600 font-semibold">{item.badge}</span>}
-              <ChevronRight className="w-4 h-4 text-gray-300" />
-            </Link>
-          ))}
-        </div>
+        {/* Menu Sections */}
+        {MENU_SECTIONS.map(section => (
+          <div key={section.title} className="mb-6">
+            <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider px-1 mb-2">
+              {section.title}
+            </h3>
+            <div className="bg-white rounded-2xl shadow-sm overflow-hidden divide-y divide-gray-50">
+              {section.items.map(item => (
+                <Link key={item.href} href={item.href}
+                  className="flex items-center gap-4 p-4 hover:bg-gray-50 transition-colors">
+                  <div className="w-10 h-10 bg-primary-50 rounded-xl flex items-center justify-center">
+                    <item.icon className="w-5 h-5 text-primary-500" />
+                  </div>
+                  <div className="flex-1">
+                    <span className="font-medium text-gray-800">{item.label}</span>
+                    {item.desc && <p className="text-xs text-gray-400 mt-0.5">{item.desc}</p>}
+                  </div>
+                  {item.badge !== undefined && item.badge !== 0 && (
+                    <span className="text-xs bg-primary-100 text-primary-700 px-2 py-1 rounded-full font-bold">
+                      {typeof item.badge === 'number' ? `${item.badge}개` : item.badge}
+                    </span>
+                  )}
+                  <ChevronRight className="w-4 h-4 text-gray-300" />
+                </Link>
+              ))}
+            </div>
+          </div>
+        ))}
 
-        <button onClick={handleLogout} className="w-full flex items-center justify-center gap-2 py-3 text-red-500 text-sm font-medium bg-white rounded-2xl shadow-sm">
+        <button onClick={handleLogout} className="w-full flex items-center justify-center gap-2 py-3 text-red-500 text-sm font-medium bg-white rounded-2xl shadow-sm mb-4">
           <LogOut className="w-4 h-4" />
           로그아웃
         </button>

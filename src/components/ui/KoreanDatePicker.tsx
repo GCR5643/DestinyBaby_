@@ -3,6 +3,12 @@
 import { useState, useRef, useEffect } from 'react';
 import { DayPicker } from 'react-day-picker';
 import { ko } from 'date-fns/locale';
+
+// 월요일 시작 한국어 로케일 (ko locale의 weekStartsOn을 0→1로 변경)
+const koMonday = {
+  ...ko,
+  options: { ...ko.options, weekStartsOn: 1 as const },
+};
 import { format, parse, isValid } from 'date-fns';
 import { CalendarIcon } from 'lucide-react';
 
@@ -127,7 +133,7 @@ export function KoreanDatePicker({
               onSelect={handleSelect}
               month={month}
               onMonthChange={setMonth}
-              locale={ko}
+              locale={koMonday}
               fromYear={1940}
               toYear={2040}
               classNames={{

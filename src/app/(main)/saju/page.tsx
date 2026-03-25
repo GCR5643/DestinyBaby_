@@ -5,9 +5,14 @@ import { useForm } from 'react-hook-form';
 import { motion, AnimatePresence } from 'framer-motion';
 import { calculateSaju } from '@/lib/saju/saju-calculator';
 import { analyzeCompatibility } from '@/lib/saju/compatibility';
-import type { SajuResult } from '@/types';
+import type { SajuResult, Element } from '@/types';
 import type { CompatibilityResult } from '@/lib/saju/compatibility';
 import { getElementColor, getElementEmoji } from '@/lib/utils/index';
+import OhengRadarChart from '@/components/saju/OhengRadarChart';
+import OhengBalanceBar from '@/components/saju/OhengBalanceBar';
+import type { OhengElements } from '@/components/saju/OhengRadarChart';
+import { recommendCareers, ELEMENT_COLOR_CLASS, ELEMENT_ICON } from '@/lib/saju/career-matcher';
+import type { CareerRecommendation } from '@/lib/saju/career-matcher';
 
 // ─────────────────────────────────────────────
 // Shared helpers
@@ -46,22 +51,53 @@ const ELEMENT_KO: Record<string, string> = {
   wood: '목', fire: '화', earth: '토', metal: '금', water: '수',
 };
 
+// SajuResult에서 오행 개수를 집계 (천간 element 기준)
+function countElements(result: SajuResult): OhengElements {
+  const pillars = [
+    result.yearPillar,
+    result.monthPillar,
+    result.dayPillar,
+    result.hourPillar,
+  ].filter(Boolean);
+
+  const counts: OhengElements = { wood: 0, fire: 0, earth: 0, metal: 0, water: 0 };
+  for (const pillar of pillars) {
+    if (pillar) {
+      const el = pillar.element as Element;
+      counts[el] = (counts[el] ?? 0) + 1;
+    }
+  }
+  return counts;
+}
+
 function SajuPillarsCard({ result }: { result: SajuResult }) {
   const pillars = [result.yearPillar, result.monthPillar, result.dayPillar, result.hourPillar];
   return (
     <div className="bg-white rounded-2xl p-5 shadow-md">
       <h2 className="font-bold text-gray-800 mb-4">사주 팔자</h2>
+      {result.hourPillarExcluded && (
+        <p className="text-xs text-amber-600 mb-3">※ 시간 미상으로 시주를 제외한 분석입니다.</p>
+      )}
       <div className="grid grid-cols-4 gap-2">
         {pillars.map((pillar, i) => (
           <div key={i} className="text-center">
             <div className="text-xs text-gray-400 mb-1">{PILLAR_LABELS[i].split(' ')[0]}</div>
-            <div className="bg-gray-50 rounded-xl p-3 space-y-1">
-              <div className="text-xl font-black text-primary-700">{pillar.heavenlyStem}</div>
-              <div className="text-lg text-gray-600">{pillar.earthlyBranch}</div>
-            </div>
-            <div className="mt-1 text-xs" style={{ color: getElementColor(pillar.element) }}>
-              {getElementEmoji(pillar.element)} {pillar.element}
-            </div>
+            {pillar === null ? (
+              <div className="bg-gray-50 rounded-xl p-3 space-y-1 opacity-40">
+                <div className="text-xl font-black text-gray-300">?</div>
+                <div className="text-lg text-gray-300">?</div>
+              </div>
+            ) : (
+              <>
+                <div className="bg-gray-50 rounded-xl p-3 space-y-1">
+                  <div className="text-xl font-black text-primary-700">{pillar.heavenlyStem}</div>
+                  <div className="text-lg text-gray-600">{pillar.earthlyBranch}</div>
+                </div>
+                <div className="mt-1 text-xs" style={{ color: getElementColor(pillar.element) }}>
+                  {getElementEmoji(pillar.element)} {pillar.element}
+                </div>
+              </>
+            )}
           </div>
         ))}
       </div>
@@ -70,27 +106,90 @@ function SajuPillarsCard({ result }: { result: SajuResult }) {
 }
 
 function ElementSummaryCard({ result }: { result: SajuResult }) {
+  const elements = countElements(result);
   return (
     <div className="bg-white rounded-2xl p-5 shadow-md">
       <h2 className="font-bold text-gray-800 mb-3">오행 분석</h2>
-      <div className="grid grid-cols-5 gap-2">
-        {(['wood', 'fire', 'earth', 'metal', 'water'] as const).map(el => (
-          <div key={el} className="text-center">
-            <div className="text-2xl">{getElementEmoji(el)}</div>
-            <div className="text-xs font-medium mt-1" style={{ color: getElementColor(el) }}>
-              {ELEMENT_KO[el]}
-            </div>
-            <div className="text-xs text-gray-400 mt-0.5">
-              {result.mainElement === el ? '주' : result.lackingElement === el ? '부족' : ''}
-            </div>
-          </div>
-        ))}
+
+      {/* 레이더 차트 */}
+      <div className="flex justify-center mb-4">
+        <OhengRadarChart elements={elements} size={260} />
       </div>
+
+      {/* 밸런스 바 */}
+      <OhengBalanceBar elements={elements} />
+
       <div className="mt-4 p-3 bg-primary-50 rounded-xl">
         <p className="text-sm text-primary-800">
-          <strong>주요 오행:</strong> {getElementEmoji(result.mainElement)} {result.mainElement} ·{' '}
-          <strong>보완 필요:</strong> {getElementEmoji(result.lackingElement)} {result.lackingElement}
+          <strong>주요 오행:</strong> {getElementEmoji(result.mainElement)} {ELEMENT_KO[result.mainElement]} ·{' '}
+          <strong>보완 필요:</strong> {getElementEmoji(result.lackingElement)} {ELEMENT_KO[result.lackingElement]}
         </p>
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────
+// 직업 추천 섹션
+// ─────────────────────────────────────────────
+function CareerRecommendationSection({ result }: { result: SajuResult }) {
+  const careers: CareerRecommendation[] = recommendCareers(result);
+  const dominant = result.sipsung?.dominant[0];
+  const secondary = result.sipsung?.dominant[1] ?? null;
+
+  return (
+    <div className="bg-white rounded-2xl p-5 shadow-md">
+      <h2 className="font-bold text-gray-800 mb-1">💼 우리 아이에게 어울리는 직업</h2>
+      <p className="text-xs text-gray-400 mb-1">십성(十星) · 오행 조합 · 일간 다차원 분석 기반 추천</p>
+      {dominant && (
+        <div className="bg-primary-50 rounded-xl p-3 mb-4">
+          <div className="flex items-center gap-2 mb-1.5">
+            <span className="text-xs font-bold text-primary-700">✨ 핵심 십성</span>
+            <span className="text-xs bg-primary-100 text-primary-800 px-2 py-0.5 rounded-full font-bold">{dominant}</span>
+            {secondary && (
+              <span className="text-xs bg-primary-100 text-primary-800 px-2 py-0.5 rounded-full font-bold">{secondary}</span>
+            )}
+          </div>
+          {result.sipsung?.interpretation && (
+            <p className="text-xs text-primary-700 leading-relaxed">{result.sipsung.interpretation}</p>
+          )}
+        </div>
+      )}
+      {!dominant && <div className="mb-4" />}
+      <div className="space-y-3">
+        {careers.map((rec) => {
+          const colors = ELEMENT_COLOR_CLASS[rec.element];
+          return (
+            <div key={rec.rank} className={`rounded-2xl p-4 ${colors.bg}`}>
+              <div className="flex items-center gap-3 mb-2">
+                {/* 순위 뱃지 */}
+                <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-black shrink-0 ${colors.badge}`}>
+                  {rec.rank}
+                </div>
+                {/* 직업명 */}
+                <span className="font-bold text-gray-800 text-sm flex-1">{rec.career}</span>
+                {/* 오행 아이콘 */}
+                <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${colors.badge}`}>
+                  {ELEMENT_ICON[rec.element]}
+                </span>
+              </div>
+              {/* fitScore 바 */}
+              <div className="flex items-center gap-2 mb-2">
+                <div className="flex-1 h-1.5 bg-white/70 rounded-full overflow-hidden">
+                  <motion.div
+                    initial={{ width: 0 }}
+                    animate={{ width: `${rec.fitScore}%` }}
+                    transition={{ duration: 0.7, delay: rec.rank * 0.1, ease: 'easeOut' }}
+                    className={`h-full rounded-full ${colors.bar}`}
+                  />
+                </div>
+                <span className={`text-xs font-bold shrink-0 ${colors.text}`}>{rec.fitScore}점</span>
+              </div>
+              {/* reason */}
+              <p className="text-xs text-gray-500 leading-relaxed">{rec.reason}</p>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
@@ -135,6 +234,7 @@ function MySajuTab() {
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
           <SajuPillarsCard result={result} />
           <ElementSummaryCard result={result} />
+          <CareerRecommendationSection result={result} />
         </motion.div>
       )}
     </div>
@@ -599,11 +699,11 @@ export default function SajuPage() {
       {/* Header */}
       <div className="bg-gradient-to-br from-primary-600 to-primary-400 pt-12 pb-8 px-4 text-white text-center">
         <div className="text-4xl mb-3">🔮</div>
-        <h1 className="text-2xl font-bold mb-1">사주 분석</h1>
+        <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold mb-1">사주 분석</h1>
         <p className="text-sm opacity-80">생년월일시로 사주를 분석해드려요</p>
       </div>
 
-      <div className="max-w-lg mx-auto px-4">
+      <div className="max-w-lg md:max-w-2xl lg:max-w-3xl mx-auto px-4 md:px-8">
         {/* Tab pills */}
         <div className="flex gap-2 -mt-5 mb-5 bg-white rounded-2xl p-1.5 shadow-md">
           {TABS.map(tab => (

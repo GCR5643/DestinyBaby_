@@ -38,7 +38,10 @@ export const paymentsRouter = createTRPCRouter({
           amount: pack.price,
           status: 'pending',
         });
-      } catch (e) { /* table may not exist yet */ }
+      } catch (e) {
+        console.warn('[payments] insert payment_orders failed:', e);
+        // table may not exist yet
+      }
 
       return {
         orderId,
@@ -54,10 +57,31 @@ export const paymentsRouter = createTRPCRouter({
   addCredits: protectedProcedure
     .input(z.object({
       orderId: z.string(),
-      credits: z.number(),
+      // 버그 3 수정: 클라이언트 credits 값은 무시하고 DB에서 조회하므로 input에서 제거
     }))
     .mutation(async ({ ctx, input }) => {
       try {
+        // DB에서 실제 주문의 credits 조회 (클라이언트 입력값 신뢰 금지)
+        const { data: order, error: orderError } = await ctx.supabase
+          .from('payment_orders')
+          .select('credits, status, user_id')
+          .eq('id', input.orderId)
+          .eq('user_id', ctx.user.id)
+          .single();
+
+        if (orderError || !order) {
+          console.warn('[payments] addCredits: order not found', input.orderId);
+          return { success: false, error: 'Order not found' };
+        }
+
+        // 중복 지급 방지: 이미 completed인 주문은 건너뜀
+        if ((order as { status: string }).status === 'completed') {
+          console.warn('[payments] addCredits: order already completed', input.orderId);
+          return { success: false, error: 'Order already completed' };
+        }
+
+        const credits = (order as { credits: number }).credits;
+
         const { data: user } = await ctx.supabase
           .from('users')
           .select('credits')
@@ -66,7 +90,7 @@ export const paymentsRouter = createTRPCRouter({
 
         await ctx.supabase
           .from('users')
-          .update({ credits: ((user as { credits?: number } | null)?.credits || 0) + input.credits })
+          .update({ credits: ((user as { credits?: number } | null)?.credits || 0) + credits })
           .eq('id', ctx.user.id);
 
         await ctx.supabase.from('payment_orders')
@@ -75,11 +99,14 @@ export const paymentsRouter = createTRPCRouter({
 
         await ctx.supabase.from('credit_transactions').insert({
           user_id: ctx.user.id,
-          amount: input.credits,
+          amount: credits,
           type: 'purchase',
           description: `크레딧 구매 (주문: ${input.orderId})`,
         });
-      } catch (e) { /* tables may not exist */ }
+      } catch (e) {
+        console.warn('[payments] addCredits failed:', e);
+        // tables may not exist
+      }
 
       return { success: true };
     }),

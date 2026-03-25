@@ -1,4 +1,4 @@
-export type Grade = 'B' | 'A' | 'S' | 'SS' | 'SSS';
+export type Grade = 'N' | 'R' | 'SR' | 'SSR' | 'UR' | 'SSS';
 export type Gender = 'male' | 'female' | 'unknown';
 export type Element = 'wood' | 'fire' | 'earth' | 'metal' | 'water';
 export type VoiceType = 'mom' | 'dad' | 'grandma' | 'english';
@@ -14,6 +14,8 @@ export interface User {
   birth_time?: string;
   credits: number;
   total_pulls: number;
+  pity_counter: number;
+  destiny_fragments: number;
   created_at: string;
 }
 
@@ -47,6 +49,26 @@ export interface UserCard {
   card?: Card;
 }
 
+// 십성 타입
+export type Sipsung =
+  | '비견' | '겁재' | '식신' | '상관' | '편재'
+  | '정재' | '편관' | '정관' | '편인' | '정인';
+
+export interface SipsungResult {
+  /** 가장 많이 나타나는 십성 (1-2개) */
+  dominant: Sipsung[];
+  /** 각 십성 출현 횟수 */
+  distribution: Record<Sipsung, number>;
+  /** 년주 천간의 십성 */
+  yearSipsung: Sipsung;
+  /** 월주 천간의 십성 */
+  monthSipsung: Sipsung;
+  /** 시주 천간의 십성 (시간 미상 시 null) */
+  hourSipsung: Sipsung | null;
+  /** 해석 문자열 */
+  interpretation: string;
+}
+
 // Saju types
 export interface SajuPillar {
   heavenlyStem: string;
@@ -59,7 +81,7 @@ export interface SajuResult {
   yearPillar: SajuPillar;
   monthPillar: SajuPillar;
   dayPillar: SajuPillar;
-  hourPillar: SajuPillar;
+  hourPillar: SajuPillar | null;
   mainElement: Element;
   lackingElement: Element;
   strongElements: Element[];
@@ -67,15 +89,37 @@ export interface SajuResult {
   overallEnergy: number;
   birthDate: string;
   birthTime?: string;
+  /** 시간 미상으로 시주를 제외한 분석일 때 true */
+  hourPillarExcluded?: boolean;
+  /** 십성 분석 결과 */
+  sipsung?: SipsungResult;
+}
+
+// 부모-자녀 사주 궁합 분석 결과
+export interface ParentChildCompatibilityResult {
+  overallScore: number; // 0-100
+  summary: string; // 한줄 요약
+  details: {
+    elementBalance: { score: number; description: string }; // 오행 보완
+    heavenlyStemHarmony: { score: number; description: string }; // 천간 합
+    earthlyBranchHarmony: { score: number; description: string }; // 지지 합
+    conflictAnalysis: { score: number; description: string }; // 충/형
+    generativeRelation: { score: number; description: string }; // 상생
+  };
+  advice: string[]; // 조언 목록
+  parentRole: 'father' | 'mother';
 }
 
 // Naming types
 export interface NamingInput {
   parent1Saju: SajuResult;
   parent2Saju?: SajuResult;
+  babySaju?: SajuResult;
   babyBirthDate?: string;
   babyBirthTime?: string;
   gender: Gender;
+  surname: string;
+  surnameHanja?: string;
   hangryeolChar?: string;
   siblingNames?: string[];
   preferences?: {
@@ -102,6 +146,22 @@ export interface StrokeAnalysis {
   luckScore: number;
 }
 
+export interface EumyangAnalysis {
+  pattern: ('양' | '음')[];
+  patternString: string;
+  score: number;
+  luck: '길' | '보통' | '흉';
+  description: string;
+}
+
+export interface PronunciationOhengAnalysis {
+  elements: ('木' | '火' | '土' | '金' | '水')[];
+  pattern: string;
+  relations: string[];
+  score: number;
+  description: string;
+}
+
 export interface NamingReport {
   name: string;
   hanja: string;
@@ -121,6 +181,8 @@ export interface NamingReport {
   parentCompatibility: { mom: number; dad: number; combined: number };
   overallComment: string;
   englishNames?: EnglishNameSuggestion[];
+  eumyangAnalysis?: EumyangAnalysis;
+  pronunciationOheng?: PronunciationOhengAnalysis;
 }
 
 export interface EnglishNameSuggestion {
@@ -178,4 +240,12 @@ export interface GachaProbability {
   grade: Grade;
   probability: number;
   pity_threshold?: number;
+}
+
+export interface CardSajuExplanation {
+  headline: string;
+  sajuConnection: string;
+  elementBoost: string;
+  careerHint: string;
+  probabilityBoost: number; // 0-20 사이 퍼센트
 }

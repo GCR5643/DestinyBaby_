@@ -1,60 +1,104 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import { createClient } from '@/lib/supabase/client';
 
 const CATEGORIES = ['전체', '자유', '작명후기', '카드자랑', '운세토크', '질문', '공략', '팬아트', '이벤트'];
 
 interface Post {
-  id: number;
+  id: string;
   title: string;
   category: string;
   nickname: string;
   created_at: string;
   likes: number;
   comments: number;
-  reported: boolean;
   hidden: boolean;
 }
 
-const MOCK_POSTS: Post[] = [
-  { id: 1, title: '이 앱 사기 아님? 환불 요청합니다', category: '자유', nickname: '화난유저99', created_at: '2024-01-15 09:12', likes: 2, comments: 14, reported: true, hidden: false },
-  { id: 2, title: '광고성 링크 공유합니다', category: '이벤트', nickname: '스팸봇001', created_at: '2024-01-15 08:45', likes: 0, comments: 0, reported: true, hidden: false },
-  { id: 3, title: 'SSS 청룡 뽑았어요!! 대박!', category: '카드자랑', nickname: '행운아민준', created_at: '2024-01-15 11:30', likes: 87, comments: 23, reported: false, hidden: false },
-  { id: 4, title: '제 아이 이름 작명 후기 공유해요', category: '작명후기', nickname: '새댁엄마', created_at: '2024-01-14 20:15', likes: 45, comments: 12, reported: false, hidden: false },
-  { id: 5, title: '가챠 확률 진짜인가요? 검증해봤습니다', category: '공략', nickname: '통계덕후', created_at: '2024-01-14 18:00', likes: 132, comments: 44, reported: false, hidden: false },
-  { id: 6, title: '사주 봐드립니다 (무료)', category: '운세토크', nickname: '도사님', created_at: '2024-01-14 15:30', likes: 28, comments: 9, reported: false, hidden: false },
-  { id: 7, title: '청룡 팬아트 그려봤어요 🐉', category: '팬아트', nickname: '그림쟁이수아', created_at: '2024-01-13 22:10', likes: 210, comments: 31, reported: false, hidden: false },
-  { id: 8, title: '첫 뽑기 10연차 결과 인증', category: '자유', nickname: '신규유저123', created_at: '2024-01-13 14:05', likes: 19, comments: 6, reported: false, hidden: false },
-];
-
 export default function CommunityPage() {
   const router = useRouter();
-  const [posts, setPosts] = useState<Post[]>(MOCK_POSTS);
+  const [posts, setPosts] = useState<Post[]>([]);
+  const [loading, setLoading] = useState(true);
   const [activeCategory, setActiveCategory] = useState('전체');
   const [search, setSearch] = useState('');
+  const [todayNew, setTodayNew] = useState(0);
 
-  const reportedPosts = posts.filter((p) => p.reported && !p.hidden);
-  const filteredPosts = posts.filter((p) => {
-    if (p.reported) return false;
+  const fetchPosts = useCallback(async () => {
+    const supabase = createClient();
+    try {
+      const { data, error } = await supabase
+        .from('community_posts')
+        .select('id, title, category, created_at, like_count, comment_count, users(nickname)')
+        .order('created_at', { ascending: false })
+        .limit(200);
+      if (error) throw error;
+
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      let newToday = 0;
+      type RawPost = {
+        id: string;
+        title: string | null;
+        category: string;
+        created_at: string;
+        like_count: number | null;
+        comment_count: number | null;
+        users: { nickname: string | null } | { nickname: string | null }[] | null;
+      };
+      const mapped: Post[] = ((data ?? []) as unknown as RawPost[]).map((row) => {
+        const usersField = Array.isArray(row.users) ? row.users[0] : row.users;
+        if (new Date(row.created_at) >= today) newToday++;
+        return {
+          id: row.id,
+          title: row.title ?? '(제목 없음)',
+          category: row.category,
+          nickname: usersField?.nickname ?? '(알 수 없음)',
+          created_at: row.created_at.slice(0, 16).replace('T', ' '),
+          likes: row.like_count ?? 0,
+          comments: row.comment_count ?? 0,
+          hidden: false,
+        };
+      });
+      setPosts(mapped);
+      setTodayNew(newToday);
+    } catch {
+      // fallback: keep empty list
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchPosts();
+  }, [fetchPosts]);
+
+  const hidePost = async (id: string) => {
+    // Mark hidden locally (community_posts has no is_hidden column in current schema)
+    setPosts((prev) => prev.map((p) => (p.id === id ? { ...p, hidden: true } : p)));
+    alert('게시물을 숨겼습니다');
+  };
+
+  const deletePost = async (id: string) => {
+    const supabase = createClient();
+    try {
+      const { error } = await supabase.from('community_posts').delete().eq('id', id);
+      if (error) throw error;
+      setPosts((prev) => prev.filter((p) => p.id !== id));
+      alert('게시물을 삭제했습니다');
+    } catch {
+      alert('삭제 중 오류가 발생했습니다');
+    }
+  };
+
+  const visiblePosts = posts.filter((p) => !p.hidden);
+  const filteredPosts = visiblePosts.filter((p) => {
     const matchCat = activeCategory === '전체' || p.category === activeCategory;
     const matchSearch = p.title.includes(search) || p.nickname.includes(search);
-    return matchCat && matchSearch && !p.hidden;
+    return matchCat && matchSearch;
   });
-
-  const hidePost = (id: number) => {
-    alert('게시물을 숨겼습니다');
-    setPosts((prev) => prev.map((p) => (p.id === id ? { ...p, hidden: true } : p)));
-  };
-
-  const deletePost = (id: number) => {
-    alert('게시물을 삭제했습니다');
-    setPosts((prev) => prev.filter((p) => p.id !== id));
-  };
-
-  const totalPosts = posts.length;
-  const todayNew = 5;
-  const reportedCount = posts.filter((p) => p.reported).length;
 
   return (
     <div className="min-h-screen bg-gray-50 pb-10">
@@ -73,9 +117,9 @@ export default function CommunityPage() {
         {/* Stats row */}
         <div className="grid grid-cols-3 gap-3">
           {[
-            { label: '총 게시물', value: totalPosts, color: 'text-gray-800' },
-            { label: '오늘 신규', value: todayNew, color: 'text-blue-600' },
-            { label: '신고 게시물', value: reportedCount, color: 'text-orange-500' },
+            { label: '총 게시물', value: loading ? '-' : visiblePosts.length, color: 'text-gray-800' },
+            { label: '오늘 신규', value: loading ? '-' : todayNew, color: 'text-blue-600' },
+            { label: '신고 게시물', value: '-', color: 'text-orange-500' },
           ].map((s) => (
             <div key={s.label} className="bg-white rounded-2xl p-4 shadow-sm text-center">
               <div className={`text-2xl font-black ${s.color}`}>{s.value}</div>
@@ -94,19 +138,6 @@ export default function CommunityPage() {
             className="w-full bg-white border border-gray-200 rounded-2xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400 shadow-sm"
           />
         </div>
-
-        {/* Reported posts */}
-        {reportedPosts.length > 0 && (
-          <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
-            <div className="px-4 py-3 border-b border-orange-100 bg-orange-50 flex items-center gap-2">
-              <span className="bg-orange-500 text-white text-xs font-black px-2 py-0.5 rounded-full">신고</span>
-              <span className="text-sm font-bold text-orange-700">신고된 게시물 ({reportedPosts.length})</span>
-            </div>
-            {reportedPosts.map((post) => (
-              <PostRow key={post.id} post={post} onHide={hidePost} onDelete={deletePost} />
-            ))}
-          </div>
-        )}
 
         {/* Category tabs */}
         <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
@@ -127,7 +158,9 @@ export default function CommunityPage() {
 
         {/* Post list */}
         <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
-          {filteredPosts.length === 0 ? (
+          {loading ? (
+            <div className="py-12 text-center text-gray-400 text-sm">불러오는 중...</div>
+          ) : filteredPosts.length === 0 ? (
             <div className="py-12 text-center text-gray-400 text-sm">게시물이 없습니다</div>
           ) : (
             filteredPosts.map((post) => (
@@ -140,7 +173,15 @@ export default function CommunityPage() {
   );
 }
 
-function PostRow({ post, onHide, onDelete }: { post: Post; onHide: (id: number) => void; onDelete: (id: number) => void }) {
+function PostRow({
+  post,
+  onHide,
+  onDelete,
+}: {
+  post: Post;
+  onHide: (id: string) => void;
+  onDelete: (id: string) => void;
+}) {
   return (
     <div className="px-4 py-3 border-b border-gray-50 last:border-0">
       <div className="flex items-start justify-between gap-2">

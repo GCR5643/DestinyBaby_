@@ -3,9 +3,15 @@
 import { useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { motion } from 'framer-motion';
-import { CreditCard, Stars } from 'lucide-react';
-import type { NamingReport } from '@/types';
+import { CreditCard, Download, Loader2, Stars } from 'lucide-react';
+import type { NamingReport, Element } from '@/types';
 import { trpc } from '@/lib/trpc/client';
+import OhengRadarChart from '@/components/saju/OhengRadarChart';
+import OhengBalanceBar from '@/components/saju/OhengBalanceBar';
+import type { OhengElements } from '@/components/saju/OhengRadarChart';
+import { ELEMENT_COLOR_CLASS, ELEMENT_ICON, recommendCareers } from '@/lib/saju/career-matcher';
+import type { CareerRecommendation } from '@/lib/saju/career-matcher';
+import { calculateSaju } from '@/lib/saju/saju-calculator';
 
 function ScoreCircle({ score, label }: { score: number; label: string }) {
   const circumference = 2 * Math.PI * 36;
@@ -108,10 +114,42 @@ const milestones = [
 export default function NamingReportPage({ params }: { params: { id: string } }) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const name = searchParams.get('name') || '지우';
-  const hanja = searchParams.get('hanja') || '智宇';
-  const [isPurchased, setIsPurchased] = useState(false);
+  const fromReview = searchParams.get('from') === 'review';
+  const [isPurchased, setIsPurchased] = useState(fromReview);
   const [isPurchasing, setIsPurchasing] = useState(false);
+  const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
+
+  // DB에서 실제 리포트 조회
+  const reportQuery = trpc.naming.getReport.useQuery({ id: params.id });
+  const dbReport = reportQuery.data;
+
+  // DB 데이터가 있으면 사용, 없으면 URL 파라미터 + fallback
+  const nameFromUrl = searchParams.get('name') || '지우';
+  const hanjaFromUrl = searchParams.get('hanja') || '智宇';
+  const name = dbReport?.selectedName ?? nameFromUrl;
+  const hanja = dbReport?.selectedHanja ?? hanjaFromUrl;
+  const isDemo = !reportQuery.isLoading && !dbReport;
+
+  const handleDownloadPdf = async () => {
+    setIsDownloadingPdf(true);
+    try {
+      const res = await fetch(`/api/naming-report/pdf?id=${params.id}`);
+      if (!res.ok) throw new Error('PDF generation failed');
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${name}_작명보고서.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('PDF download error:', err);
+    } finally {
+      setIsDownloadingPdf(false);
+    }
+  };
 
   const popularityQuery = trpc.naming.getNamePopularity.useQuery(
     { names: [name] },
@@ -119,7 +157,8 @@ export default function NamingReportPage({ params }: { params: { id: string } })
   );
   const popularity = popularityQuery.data?.[name];
 
-  const mockReport: NamingReport = {
+  // DB 데이터가 없을 때만 사용하는 fallback mockReport
+  const fallbackReport: NamingReport = {
     name, hanja,
     strokeAnalysis: { totalStrokes: 18, heavenGrade: 12, humanGrade: 18, earthGrade: 6, outerGrade: 12, totalGrade: 18, luckScore: 88 },
     yinYangFiveElements: { elements: ['water', 'wood'], balance: '균형잡힌', recommendation: '오행이 조화롭게 배합되어 있습니다' },
@@ -133,8 +172,20 @@ export default function NamingReportPage({ params }: { params: { id: string } })
     overallComment: `"${name}"는 아이의 사주에 완벽하게 어울리는 이름입니다. 지혜와 넓은 마음을 가진 사람으로 성장할 것입니다. 부모님의 기운과도 매우 잘 어울려, 가족 전체가 행복하고 건강한 삶을 누릴 것으로 보입니다.`,
   };
 
-  const mainElement = (mockReport.yinYangFiveElements.elements[0] ?? 'water') as string;
+  const report: NamingReport = dbReport?.reportData ?? fallbackReport;
+
+  const mainElement = (report.yinYangFiveElements.elements[0] ?? 'water') as string;
   const elemRec = ELEMENT_RECOMMENDATIONS[mainElement] ?? ELEMENT_RECOMMENDATIONS.water;
+
+  // 오행 차트용: yinYangFiveElements.elements 배열에서 개수 집계
+  const ohengElements: OhengElements = (() => {
+    const counts: OhengElements = { wood: 0, fire: 0, earth: 0, metal: 0, water: 0 };
+    for (const el of report.yinYangFiveElements.elements) {
+      const key = el as Element;
+      counts[key] = (counts[key] ?? 0) + 1;
+    }
+    return counts;
+  })();
 
   const elementDescMap: Record<string, string> = {
     water: '지혜롭고 깊은 통찰력',
@@ -147,6 +198,39 @@ export default function NamingReportPage({ params }: { params: { id: string } })
 
   const blessingMessage = `사랑스러운 ${name}이(가) 이 세상에 태어나 주어 감사해요. ${name}의 사주는 ${elementDesc}을 품고 있어요. 부모님의 사랑을 듬뿍 받으며, 자신만의 아름다운 길을 걸어갈 거예요. ✨`;
 
+  // 직업 추천: 오행 분포 기반 SajuResult 구성 후 다차원 추천
+  // element → 양간 천간 (갑=木양, 병=火양, 무=土양, 경=金양, 임=水양)
+  const ELEMENT_TO_YANG_STEM: Record<string, string> = {
+    wood: '갑', fire: '병', earth: '무', metal: '경', water: '임',
+  };
+  const ELEMENT_TO_YIN_BRANCH: Record<string, string> = {
+    wood: '인', fire: '사', earth: '축', metal: '유', water: '자',
+  };
+  const reportElements = report.yinYangFiveElements.elements as string[];
+  const allEls: Element[] = ['wood', 'fire', 'earth', 'metal', 'water'];
+  const elCounts: Record<string, number> = { wood: 0, fire: 0, earth: 0, metal: 0, water: 0 };
+  for (const el of reportElements) { if (el in elCounts) elCounts[el]++; }
+  const elSorted = allEls.slice().sort((a, b) => (elCounts[b] ?? 0) - (elCounts[a] ?? 0));
+  const reportMainEl = (elSorted[0] ?? mainElement) as Element;
+  const reportLackEl = (elSorted[elSorted.length - 1] ?? 'earth') as Element;
+  const dayStem = ELEMENT_TO_YANG_STEM[reportMainEl] ?? '갑';
+  const syntheticSaju = calculateSaju('2000-01-01');
+  // 일주 오행을 report의 주 오행으로 오버라이드한 합성 SajuResult
+  const syntheticForReport = {
+    ...syntheticSaju,
+    dayPillar: {
+      heavenlyStem: dayStem,
+      earthlyBranch: ELEMENT_TO_YIN_BRANCH[reportMainEl] ?? '인',
+      element: reportMainEl,
+      yin_yang: 'yang' as const,
+    },
+    mainElement: reportMainEl,
+    lackingElement: reportLackEl,
+    strongElements: elSorted.slice(0, 2) as Element[],
+    weakElements: elSorted.slice(3) as Element[],
+  };
+  const careerRecommendations: CareerRecommendation[] = recommendCareers(syntheticForReport);
+
   const handlePurchase = async () => {
     setIsPurchasing(true);
     // TODO: Toss/Naver/Stripe payment
@@ -154,6 +238,33 @@ export default function NamingReportPage({ params }: { params: { id: string } })
     setIsPurchased(true);
     setIsPurchasing(false);
   };
+
+  // 로딩 중 스켈레톤 UI
+  if (reportQuery.isLoading) {
+    return (
+      <div className="min-h-screen bg-ivory pb-24">
+        <div className="bg-gradient-to-br from-primary-600 to-primary-400 pt-12 pb-8 px-4 text-white text-center">
+          <div className="h-8 w-40 bg-white/30 rounded-lg mx-auto mb-2 animate-pulse" />
+          <div className="h-4 w-24 bg-white/20 rounded mx-auto animate-pulse" />
+        </div>
+        <div className="max-w-lg md:max-w-2xl lg:max-w-3xl mx-auto px-4 md:px-8 mt-6 space-y-4">
+          {[1, 2, 3].map(i => (
+            <div key={i} className="bg-white rounded-2xl p-6 shadow-md animate-pulse">
+              <div className="h-5 w-32 bg-gray-200 rounded mb-4" />
+              <div className="flex justify-around">
+                {[1, 2, 3].map(j => (
+                  <div key={j} className="flex flex-col items-center gap-2">
+                    <div className="w-24 h-24 rounded-full bg-gray-200" />
+                    <div className="h-3 w-16 bg-gray-200 rounded" />
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   if (!isPurchased) {
     return (
@@ -163,7 +274,7 @@ export default function NamingReportPage({ params }: { params: { id: string } })
           <p className="text-sm opacity-80">{name} ({hanja})</p>
         </div>
 
-        <div className="max-w-lg mx-auto px-4 mt-6">
+        <div className="max-w-lg md:max-w-2xl lg:max-w-3xl mx-auto px-4 md:px-8 mt-6">
           <div className="bg-white rounded-2xl p-6 shadow-md relative overflow-hidden">
             <div className="absolute inset-0 flex items-center justify-center bg-white/80 backdrop-blur-sm z-10 rounded-2xl">
               <div className="text-center p-6">
@@ -215,19 +326,47 @@ export default function NamingReportPage({ params }: { params: { id: string } })
   return (
     <div className="min-h-screen bg-ivory pb-24">
       <div className="bg-gradient-to-br from-primary-600 to-primary-400 pt-12 pb-8 px-4 text-white text-center">
-        <h1 className="text-2xl font-bold mb-1">{name} ({hanja})</h1>
-        <p className="text-sm opacity-80">사주 인생 보고서</p>
+        <h1 className="text-2xl font-bold mb-1">{name}{hanja ? ` (${hanja})` : ''}</h1>
+        <p className="text-sm opacity-80">{fromReview ? '이름 평가 보고서' : '사주 인생 보고서'}</p>
+        {fromReview && (
+          <div className="mt-3 inline-block bg-white/20 rounded-full px-4 py-1 text-xs font-medium">
+            📊 이미 지은 이름 분석 결과
+          </div>
+        )}
       </div>
 
-      <div className="max-w-lg mx-auto px-4 -mt-4 space-y-4">
+      <div className="max-w-lg md:max-w-2xl lg:max-w-3xl mx-auto px-4 md:px-8 -mt-4 space-y-4">
+
+        {/* 데모 데이터 배너 */}
+        {isDemo && (
+          <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-sm text-amber-800 flex items-center gap-2">
+            <span className="text-base">⚠️</span>
+            <span>데모 데이터입니다. 실제 분석 결과가 저장되지 않았습니다.</span>
+          </div>
+        )}
+
+        {/* PDF 다운로드 */}
+        <div className="flex justify-end">
+          <button
+            onClick={handleDownloadPdf}
+            disabled={isDownloadingPdf}
+            className="flex items-center gap-2 bg-white text-primary-600 border border-primary-200 px-4 py-2.5 rounded-xl text-sm font-semibold shadow-sm hover:bg-primary-50 transition-colors disabled:opacity-60"
+          >
+            {isDownloadingPdf ? (
+              <><Loader2 className="w-4 h-4 animate-spin" />PDF 생성 중...</>
+            ) : (
+              <><Download className="w-4 h-4" />PDF 다운로드</>
+            )}
+          </button>
+        </div>
 
         {/* 1. 종합 점수 */}
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="bg-white rounded-2xl p-6 shadow-md">
           <h2 className="font-bold text-gray-800 mb-4 flex items-center gap-2"><Stars className="w-5 h-5 text-gold-400" />종합 점수</h2>
           <div className="flex justify-around">
-            <ScoreCircle score={mockReport.sajuFitScore} label="사주 적합도" />
-            <ScoreCircle score={mockReport.parentCompatibility.mom} label="엄마 궁합" />
-            <ScoreCircle score={mockReport.parentCompatibility.dad} label="아빠 궁합" />
+            <ScoreCircle score={report.sajuFitScore} label="사주 적합도" />
+            <ScoreCircle score={report.parentCompatibility.mom} label="엄마 궁합" />
+            <ScoreCircle score={report.parentCompatibility.dad} label="아빠 궁합" />
           </div>
         </motion.div>
 
@@ -245,12 +384,12 @@ export default function NamingReportPage({ params }: { params: { id: string } })
           <h2 className="font-bold text-gray-800 mb-4">🔮 사주 팔자 요약</h2>
           <div className="grid grid-cols-3 gap-3 mb-3">
             {[
-              { label: '천격', value: mockReport.strokeAnalysis.heavenGrade },
-              { label: '인격', value: mockReport.strokeAnalysis.humanGrade },
-              { label: '지격', value: mockReport.strokeAnalysis.earthGrade },
-              { label: '외격', value: mockReport.strokeAnalysis.outerGrade },
-              { label: '총격', value: mockReport.strokeAnalysis.totalGrade },
-              { label: '운세점수', value: mockReport.strokeAnalysis.luckScore },
+              { label: '천격', value: report.strokeAnalysis.heavenGrade },
+              { label: '인격', value: report.strokeAnalysis.humanGrade },
+              { label: '지격', value: report.strokeAnalysis.earthGrade },
+              { label: '외격', value: report.strokeAnalysis.outerGrade },
+              { label: '총격', value: report.strokeAnalysis.totalGrade },
+              { label: '운세점수', value: report.strokeAnalysis.luckScore },
             ].map(item => (
               <div key={item.label} className="bg-gray-50 rounded-xl p-3 text-center">
                 <div className="text-lg font-bold text-primary-600">{item.value}</div>
@@ -259,7 +398,7 @@ export default function NamingReportPage({ params }: { params: { id: string } })
             ))}
           </div>
           <div className="mt-2 bg-primary-50 rounded-xl p-3 text-sm text-primary-800">
-            {mockReport.yinYangFiveElements.recommendation}
+            {report.yinYangFiveElements.recommendation}
           </div>
         </motion.div>
 
@@ -267,7 +406,7 @@ export default function NamingReportPage({ params }: { params: { id: string } })
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="bg-white rounded-2xl p-6 shadow-md">
           <h2 className="font-bold text-gray-800 mb-4">📖 이름 한자 풀이</h2>
           <div className="space-y-3">
-            {mockReport.meaningBreakdown.map((item, i) => (
+            {report.meaningBreakdown.map((item, i) => (
               <div key={i} className="flex items-start gap-4 p-3 bg-gray-50 rounded-xl">
                 <div className="text-center min-w-12">
                   <div className="text-2xl font-bold text-primary-600">{item.hanja}</div>
@@ -336,7 +475,19 @@ export default function NamingReportPage({ params }: { params: { id: string } })
           </motion.div>
         )}
 
-        {/* 5. 오행 인생 추천 */}
+        {/* 5. 오행 분석 차트 */}
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.22 }} className="bg-white rounded-2xl p-6 shadow-md">
+          <h2 className="font-bold text-gray-800 mb-4">🌐 오행 레이더 분석</h2>
+          <div className="flex justify-center mb-4">
+            <OhengRadarChart elements={ohengElements} size={240} />
+          </div>
+          <OhengBalanceBar elements={ohengElements} />
+          <div className="mt-3 p-3 bg-primary-50 rounded-xl text-sm text-primary-800">
+            {report.yinYangFiveElements.recommendation}
+          </div>
+        </motion.div>
+
+        {/* 6. 오행 인생 추천 */}
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }} className="bg-white rounded-2xl p-6 shadow-md">
           <h2 className="font-bold text-gray-800 mb-4">🎨 오행 인생 추천</h2>
           <div className="grid grid-cols-1 gap-3">
@@ -392,7 +543,7 @@ export default function NamingReportPage({ params }: { params: { id: string } })
           </div>
         </motion.div>
 
-        {/* 6. 인생 이정표 */}
+        {/* 7. 인생 이정표 */}
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="bg-white rounded-2xl p-6 shadow-md">
           <h2 className="font-bold text-gray-800 mb-4">🌟 인생 이정표</h2>
           <div className="space-y-3">
@@ -409,16 +560,92 @@ export default function NamingReportPage({ params }: { params: { id: string } })
           </div>
         </motion.div>
 
-        {/* 7. 종합 작명 소견 */}
+        {/* 8. 종합 작명 소견 */}
         <motion.div
           initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }}
           className="bg-gradient-to-br from-primary-50 to-secondary-50 rounded-2xl p-6 border border-primary-100"
         >
           <h2 className="font-bold text-gray-800 mb-3">💫 종합 작명 소견</h2>
-          <p className="text-gray-700 text-sm leading-relaxed">{mockReport.overallComment}</p>
+          <p className="text-gray-700 text-sm leading-relaxed">{report.overallComment}</p>
         </motion.div>
 
-        {/* 8. 카드 뽑기 CTA */}
+        {/* 9. review 경로: 점수 낮을 때 대안 이름 추천 CTA */}
+        {fromReview && report.sajuFitScore < 70 && (
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.38 }}
+            className="bg-gradient-to-br from-amber-50 to-orange-50 rounded-2xl p-6 border border-amber-200"
+          >
+            <div className="text-3xl mb-2">💡</div>
+            <h3 className="font-black text-gray-800 text-lg mb-1">사주 적합도가 낮아요</h3>
+            <p className="text-gray-500 text-sm mb-4">
+              현재 이름의 사주 적합도가 {report.sajuFitScore}점으로 다소 낮습니다.<br />
+              AI가 추천하는 더 잘 맞는 이름을 확인해보세요.
+            </p>
+            <button
+              onClick={() => router.push('/naming')}
+              className="w-full bg-amber-500 text-white py-3 rounded-2xl font-bold hover:bg-amber-600 transition-colors"
+            >
+              ✨ 대안 이름 추천받기
+            </button>
+          </motion.div>
+        )}
+
+        {/* 10. review 경로: 사주 상세 리포트 보기 CTA */}
+        {fromReview && (
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.42 }}
+            className="bg-gradient-to-br from-primary-600 to-primary-400 rounded-2xl p-6 text-center"
+          >
+            <div className="text-3xl mb-2">📖</div>
+            <h3 className="text-white font-black text-lg mb-1">사주 인생 보고서도 받아보세요</h3>
+            <p className="text-white/70 text-sm mb-4">
+              오행 인생 추천, 인생 이정표, 행운의 색깔까지<br />
+              아이의 미래를 더 깊이 알아보세요
+            </p>
+            <button
+              onClick={() => router.push('/naming')}
+              className="w-full bg-white text-primary-700 py-3 rounded-2xl font-black hover:bg-primary-50 transition-colors"
+            >
+              🌟 사주 기반 이름 추천받기
+            </button>
+          </motion.div>
+        )}
+
+        {/* 11. 직업 추천 */}
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.38 }} className="bg-white rounded-2xl p-6 shadow-md">
+          <h2 className="font-bold text-gray-800 mb-1">💼 우리 아이에게 어울리는 직업</h2>
+          <p className="text-xs text-gray-400 mb-4">십성(十星) · 오행 조합 · 일간 다차원 분석 기반 추천</p>
+          <div className="space-y-3">
+            {careerRecommendations.map((rec) => {
+              const colors = ELEMENT_COLOR_CLASS[rec.element];
+              return (
+                <div key={rec.rank} className={`rounded-2xl p-4 ${colors.bg}`}>
+                  <div className="flex items-center gap-3 mb-2">
+                    <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-black shrink-0 ${colors.badge}`}>
+                      {rec.rank}
+                    </div>
+                    <span className="font-bold text-gray-800 text-sm flex-1">{rec.career}</span>
+                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${colors.badge}`}>
+                      {ELEMENT_ICON[rec.element]}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="flex-1 h-1.5 bg-white/70 rounded-full overflow-hidden">
+                      <motion.div
+                        initial={{ width: 0 }}
+                        animate={{ width: `${rec.fitScore}%` }}
+                        transition={{ duration: 0.7, delay: rec.rank * 0.1, ease: 'easeOut' }}
+                        className={`h-full rounded-full ${colors.bar}`}
+                      />
+                    </div>
+                    <span className={`text-xs font-bold shrink-0 ${colors.text}`}>{rec.fitScore}점</span>
+                  </div>
+                  <p className="text-xs text-gray-500 leading-relaxed">{rec.reason}</p>
+                </div>
+              );
+            })}
+          </div>
+        </motion.div>
+
+        {/* 12. 카드 뽑기 CTA */}
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}
           className="bg-gradient-to-br from-purple-900 to-indigo-900 rounded-2xl p-6 text-center"
         >

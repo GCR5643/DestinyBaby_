@@ -3,12 +3,15 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Volume2, Star, X, Shuffle, RefreshCw } from 'lucide-react';
-import type { SuggestedName, Element } from '@/types';
+import { Volume2, Star, X, Shuffle, RefreshCw, BookmarkCheck, Bookmark } from 'lucide-react';
+import type { SuggestedName } from '@/types';
 import { getElementColor } from '@/lib/utils';
 import { DemoBanner } from '@/components/naming/DemoBanner';
 import { cn } from '@/lib/utils';
 import { trpc } from '@/lib/trpc/client';
+import OhengRadarChart from '@/components/saju/OhengRadarChart';
+import type { OhengElements } from '@/components/saju/OhengRadarChart';
+import { createClient } from '@/lib/supabase/client';
 
 // ── Mock data pool ────────────────────────────────────────────────────────────
 
@@ -155,6 +158,18 @@ function NameCard({ name, index, isCandidate, popularity, onAddCandidate, onVoic
           </div>
         </div>
 
+        {/* 오행 레이더 차트 (소형) */}
+        {name.element && (() => {
+          const el = name.element!;
+          const oheng: OhengElements = { wood: 0, fire: 0, earth: 0, metal: 0, water: 0 };
+          oheng[el] = 3;
+          return (
+            <div className="flex justify-center mb-3">
+              <OhengRadarChart elements={oheng} size={160} showLabels={true} animated={true} />
+            </div>
+          );
+        })()}
+
         {/* Meaning */}
         <p className="text-sm text-gray-600 mb-4 leading-relaxed">{name.reasonShort}</p>
 
@@ -189,6 +204,7 @@ function NameCard({ name, index, isCandidate, popularity, onAddCandidate, onVoic
 
 export default function NamingResultPage({ params }: { params: { id: string } }) {
   const router = useRouter();
+  const isGuest = params.id === 'guest';
 
   const [filter, setFilter] = useState<LengthFilter>('2');
   const [pool, setPool] = useState<SuggestedName[]>([]);
@@ -199,6 +215,82 @@ export default function NamingResultPage({ params }: { params: { id: string } })
   const [showFinalModal, setShowFinalModal] = useState(false);
   const [finalName, setFinalName] = useState<SuggestedName | null>(null);
   const [popularityMap, setPopularityMap] = useState<Record<string, PopularityInfo>>({});
+  const [realNames, setRealNames] = useState<SuggestedName[] | null>(null);
+  const [isSaved, setIsSaved] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState<boolean | null>(null);
+  const [showRegeneratePrompt, setShowRegeneratePrompt] = useState(false);
+  const [isRegenerating, setIsRegenerating] = useState(false);
+
+  const generateNamesPublic = trpc.naming.generateNamesPublic.useMutation();
+
+  const handleRegenerate = useCallback(async () => {
+    if (isRegenerating) return;
+    setIsRegenerating(true);
+    try {
+      const storedPayload = sessionStorage.getItem('guest-naming-payload');
+      if (!storedPayload) {
+        router.push('/naming');
+        return;
+      }
+      const payload = JSON.parse(storedPayload);
+      const result = await generateNamesPublic.mutateAsync(payload);
+      sessionStorage.setItem('guest-naming-result', JSON.stringify(result.names));
+      setRealNames(result.names);
+      setShowRegeneratePrompt(false);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'AI 이름 추천에 실패했습니다. 다시 시도해주세요.');
+    } finally {
+      setIsRegenerating(false);
+    }
+  }, [isRegenerating, generateNamesPublic, router]);
+
+  // 로그인 상태 확인
+  useEffect(() => {
+    const supabase = createClient();
+    supabase.auth.getUser().then(({ data }) => {
+      setIsLoggedIn(!!data.user);
+    });
+  }, []);
+
+  const saveResult = trpc.naming.saveResult.useMutation({
+    onSuccess: (data) => {
+      if (data.saved) {
+        setIsSaved(true);
+        showToast('저장되었습니다 ✓');
+      }
+    },
+  });
+
+  const handleSaveResult = useCallback(() => {
+    if (isGuest) return;
+    if (isLoggedIn === false) {
+      router.push('/login?redirect=' + encodeURIComponent(window.location.pathname));
+      return;
+    }
+    if (isSaved) return;
+    saveResult.mutate({ resultId: params.id });
+  }, [isGuest, isLoggedIn, isSaved, saveResult, params.id, router]);
+
+  // Fetch real result from DB when id is not 'guest'
+  const resultQuery = trpc.naming.getResult.useQuery(
+    { id: params.id },
+    { enabled: !isGuest }
+  );
+
+  // Once real names are loaded, store them and set initial display
+  useEffect(() => {
+    if (resultQuery.data?.suggested_names) {
+      const names = resultQuery.data.suggested_names;
+      setRealNames(names);
+      // Filter by current length selection, or show all if no match
+      const filtered = names.filter(n => String(n.name.length) === filter);
+      const source = filtered.length > 0 ? filtered : names;
+      const shuffled = shuffle(source);
+      setPool(shuffled);
+      setOffset(0);
+      setDisplayed(shuffled.slice(0, 10));
+    }
+  }, [resultQuery.data, filter]);
 
   const popularityQuery = trpc.naming.getNamePopularity.useQuery(
     { names: displayed.map(n => n.name) },
@@ -211,28 +303,62 @@ export default function NamingResultPage({ params }: { params: { id: string } })
     }
   }, [popularityQuery.data]);
 
-  // Build shuffled pool whenever filter changes
+  // 게스트 모드: sessionStorage에서 실제 LLM 생성 이름 로드
   useEffect(() => {
-    const newPool = shuffle(ALL_NAMES[filter]);
-    setPool(newPool);
-    setOffset(0);
-    setDisplayed(newPool.slice(0, 10));
-  }, [filter]);
-
-  const handleLoadMore = useCallback(() => {
-    const nextOffset = offset + 10;
-    const source = pool.length > 0 ? pool : shuffle(ALL_NAMES[filter]);
-    if (nextOffset >= source.length) {
-      // cycle: re-shuffle and start over
-      const reshuffled = shuffle(ALL_NAMES[filter]);
-      setPool(reshuffled);
-      setOffset(0);
-      setDisplayed(reshuffled.slice(0, 10));
-    } else {
-      setOffset(nextOffset);
-      setDisplayed(source.slice(nextOffset, nextOffset + 10));
+    if (isGuest && !realNames) {
+      try {
+        const stored = sessionStorage.getItem('guest-naming-result');
+        if (stored) {
+          const parsed = JSON.parse(stored) as SuggestedName[];
+          if (parsed.length > 0) {
+            setRealNames(parsed);
+            return;
+          }
+        }
+      } catch {
+        // sessionStorage 파싱 실패 시 fallback
+      }
     }
-  }, [pool, offset, filter]);
+  }, [isGuest, realNames]);
+
+  // Build shuffled pool whenever filter changes (real names first, mock fallback only if no data)
+  useEffect(() => {
+    if (realNames) {
+      const filtered = realNames.filter(n => String(n.name.length) === filter);
+      const source = filtered.length > 0 ? filtered : realNames;
+      const shuffled = shuffle(source);
+      setPool(shuffled);
+      setOffset(0);
+      setDisplayed(shuffled.slice(0, 10));
+    } else if (isGuest) {
+      // realNames가 아직 로드 안 됐으면 잠시 대기, 없으면 mock fallback
+      const newPool = shuffle(ALL_NAMES[filter]);
+      setPool(newPool);
+      setOffset(0);
+      setDisplayed(newPool.slice(0, 10));
+    }
+  }, [filter, realNames, isGuest]);
+
+  const handleLoadMore = useCallback(async () => {
+    // 현재 이름 풀 내에서 아직 안 본 이름 있으면 보여줌
+    const basePool = (() => {
+      if (realNames) {
+        const filtered = realNames.filter(n => String(n.name.length) === filter);
+        return filtered.length > 0 ? filtered : realNames;
+      }
+      return ALL_NAMES[filter];
+    })();
+
+    const nextOffset = offset + 10;
+    if (nextOffset < basePool.length) {
+      setOffset(nextOffset);
+      setDisplayed(basePool.slice(nextOffset, nextOffset + 10));
+      return;
+    }
+
+    // 모든 이름을 다 봤음 → 정보를 다시 입력하도록 안내
+    setShowRegeneratePrompt(true);
+  }, [offset, filter, realNames]);
 
   const handleAddCandidate = useCallback((name: SuggestedName) => {
     setCandidates(prev => {
@@ -258,19 +384,48 @@ export default function NamingResultPage({ params }: { params: { id: string } })
     router.push(`/naming/voice/${encodeURIComponent(name)}`);
   };
 
-  const handleShare = useCallback(() => {
+  const createVoteSession = trpc.naming.createVoteSession.useMutation();
+
+  const handleShare = useCallback(async () => {
     if (candidates.length === 0) return;
-    const json = JSON.stringify(candidates);
-    const shareId = btoa(json).replace(/=/g, '').substring(0, 20);
-    const key = `vote-${shareId}`;
-    localStorage.setItem(key, json);
-    const link = `${window.location.origin}/naming/vote/${shareId}`;
-    navigator.clipboard.writeText(link).then(() => {
-      showToast('링크가 클립보드에 복사됐어요! 🎉');
-    }).catch(() => {
-      showToast(`링크: ${link}`);
-    });
-  }, [candidates]);
+
+    try {
+      const result = await createVoteSession.mutateAsync({
+        candidates: candidates.map(c => ({
+          name: c.name,
+          hanja: c.hanja,
+          reasonShort: c.reasonShort,
+          sajuScore: c.sajuScore,
+          element: c.element,
+        })),
+      });
+
+      const voteUrl = `${window.location.origin}/naming/vote/${result.shareCode}`;
+
+      // 카카오톡 공유 시도
+      if (window.Kakao?.isInitialized?.()) {
+        window.Kakao.Share.sendDefault({
+          objectType: 'feed',
+          content: {
+            title: '우리 아이 이름, 어떤 게 좋을까요? 🍼',
+            description: `${candidates.length}개의 후보 이름에 투표해주세요!`,
+            imageUrl: `${window.location.origin}/og-vote.png`,
+            link: { mobileWebUrl: voteUrl, webUrl: voteUrl },
+          },
+          buttons: [
+            { title: '투표하기', link: { mobileWebUrl: voteUrl, webUrl: voteUrl } },
+          ],
+        });
+      } else {
+        // 카카오 SDK 없으면 클립보드 복사
+        await navigator.clipboard.writeText(voteUrl);
+        showToast('투표 링크가 복사됐어요! 카톡에 붙여넣기 해주세요 🎉');
+      }
+    } catch (e) {
+      console.warn('[share] 투표 세션 생성 실패:', e);
+      showToast('공유 실패. 다시 시도해주세요.');
+    }
+  }, [candidates, createVoteSession]);
 
   const filterLabels: { key: LengthFilter; label: string }[] = [
     { key: '1', label: '외자 (1글자)' },
@@ -278,9 +433,18 @@ export default function NamingResultPage({ params }: { params: { id: string } })
     { key: '3', label: '세글자+' },
   ];
 
+  // Show loading while fetching real result
+  if (!isGuest && resultQuery.isLoading) {
+    return (
+      <div className="min-h-screen bg-ivory flex items-center justify-center">
+        <p className="text-gray-400 text-sm">이름을 불러오는 중...</p>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-ivory pb-24">
-      {params.id === 'guest' && <DemoBanner />}
+      {isGuest && <DemoBanner />}
 
       {/* Header */}
       <div className="bg-gradient-to-br from-primary-500 to-primary-400 pt-12 pb-8 px-4 text-white text-center">
@@ -290,7 +454,31 @@ export default function NamingResultPage({ params }: { params: { id: string } })
         </motion.div>
       </div>
 
-      <div className="max-w-lg mx-auto px-4 -mt-4">
+      <div className="max-w-lg md:max-w-2xl lg:max-w-3xl mx-auto px-4 md:px-8 -mt-4">
+        {/* 결과 저장하기 버튼 */}
+        {!isGuest && (
+          <div className="flex justify-end mb-3">
+            <button
+              onClick={handleSaveResult}
+              disabled={isSaved || saveResult.isPending}
+              className={cn(
+                'flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-colors shadow-sm',
+                isSaved
+                  ? 'bg-green-50 text-green-600 border border-green-200 cursor-default'
+                  : 'bg-white text-primary-600 border border-primary-200 hover:bg-primary-50'
+              )}
+            >
+              {isSaved ? (
+                <><BookmarkCheck className="w-4 h-4" />저장됨</>
+              ) : saveResult.isPending ? (
+                <><div className="w-4 h-4 border-2 border-primary-300 border-t-primary-600 rounded-full animate-spin" />저장 중...</>
+              ) : (
+                <><Bookmark className="w-4 h-4" />결과 저장하기</>
+              )}
+            </button>
+          </div>
+        )}
+
         {/* Length filter */}
         <div className="bg-white rounded-2xl shadow-md p-3 mb-4 flex gap-2">
           {filterLabels.map(({ key, label }) => (
@@ -310,7 +498,7 @@ export default function NamingResultPage({ params }: { params: { id: string } })
         </div>
 
         {/* Name cards */}
-        <div className="space-y-4 mb-4">
+        <div className="space-y-4 md:grid md:grid-cols-2 md:gap-4 md:space-y-0 mb-4">
           <AnimatePresence mode="wait">
             {displayed.map((name, i) => (
               <NameCard
@@ -326,14 +514,33 @@ export default function NamingResultPage({ params }: { params: { id: string } })
           </AnimatePresence>
         </div>
 
-        {/* Load more */}
-        <button
-          onClick={handleLoadMore}
-          className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl border-2 border-primary-300 text-primary-600 font-medium hover:bg-primary-50 transition-colors mb-6"
-        >
-          <Shuffle className="w-4 h-4" />
-          더 뽑아보기 🎲
-        </button>
+        {/* Load more / Regenerate */}
+        {showRegeneratePrompt ? (
+          <div className="bg-primary-50 border border-primary-200 rounded-2xl p-5 mb-6 text-center">
+            <p className="text-sm text-gray-700 mb-3">모든 이름을 확인했어요. 새로운 이름을 뽑아볼까요?</p>
+            <button
+              onClick={handleRegenerate}
+              disabled={isRegenerating}
+              className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl bg-primary-500 text-white font-medium hover:bg-primary-600 transition-colors mb-2 disabled:opacity-50"
+            >
+              <RefreshCw className={cn("w-4 h-4", isRegenerating && "animate-spin")} />
+              {isRegenerating ? 'AI가 새 이름을 찾고 있어요...' : '새로운 이름 추천받기'}
+            </button>
+            <button
+              onClick={() => router.push('/naming')}
+              className="w-full flex items-center justify-center gap-2 py-2.5 rounded-2xl text-sm text-gray-500 hover:text-gray-700 transition-colors"
+            >
+              조건 변경하기
+            </button>
+          </div>
+        ) : (
+          <button
+            onClick={handleLoadMore}
+            className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl border-2 border-primary-300 text-primary-600 font-medium hover:bg-primary-50 transition-colors mb-6"
+          >
+            <Shuffle className="w-4 h-4" /> 더 뽑아보기 🎲
+          </button>
+        )}
 
         {/* Candidate section */}
         <div className="bg-white rounded-2xl shadow-md p-5 mb-4">
@@ -401,11 +608,12 @@ export default function NamingResultPage({ params }: { params: { id: string } })
 
         {/* Bottom nav */}
         <button
-          onClick={() => router.push('/naming')}
-          className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl border-2 border-primary-300 text-primary-600 font-medium hover:bg-primary-50 transition-colors"
+          onClick={isGuest ? handleRegenerate : () => router.push('/naming')}
+          disabled={isRegenerating}
+          className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl border-2 border-primary-300 text-primary-600 font-medium hover:bg-primary-50 transition-colors disabled:opacity-50"
         >
-          <RefreshCw className="w-4 h-4" />
-          다시 추천받기
+          <RefreshCw className={cn("w-4 h-4", isRegenerating && "animate-spin")} />
+          {isRegenerating ? 'AI가 새 이름을 찾고 있어요...' : '다시 추천받기'}
         </button>
       </div>
 

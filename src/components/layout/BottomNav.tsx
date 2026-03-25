@@ -2,14 +2,14 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, Sparkles, Users, User } from 'lucide-react';
+import { Home, Sparkles, Calendar, User, Layers } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const NAV_ITEMS = [
   { href: '/', label: '홈', icon: Home },
   { href: '/naming', label: '작명소', icon: Sparkles },
-  { href: '/cards', label: '카드', icon: () => <span className="text-lg">🃏</span> },
-  { href: '/community', label: '커뮤니티', icon: Users },
+  { href: '/birthdate', label: '탄생일', icon: Calendar },
+  { href: '/cards', label: '카드', icon: Layers },
   { href: '/profile', label: '프로필', icon: User },
 ];
 
@@ -17,7 +17,7 @@ export default function BottomNav() {
   const pathname = usePathname();
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-gray-100 safe-area-pb">
+    <nav className="fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-gray-100 safe-area-pb md:hidden">
       <div className="flex items-center justify-around max-w-lg mx-auto px-2">
         {NAV_ITEMS.map(({ href, label, icon: Icon }) => {
           const isActive = pathname === href || (href !== '/' && pathname.startsWith(href));

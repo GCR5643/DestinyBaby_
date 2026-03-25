@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Play, Pause, Volume2, Download } from 'lucide-react';
+import { Play, Volume2 } from 'lucide-react';
 import type { VoiceType } from '@/types';
 import { cn } from '@/lib/utils';
 
@@ -19,6 +19,7 @@ export default function VoicePage({ params }: { params: { name: string } }) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [customText, setCustomText] = useState('');
   const [activePreset, setActivePreset] = useState(0);
+  const [error, setError] = useState<string | null>(null);
 
   const presets = [
     `${name}아~ 놀자~`,
@@ -29,9 +30,38 @@ export default function VoicePage({ params }: { params: { name: string } }) {
 
   const handlePlay = async (text: string) => {
     setIsPlaying(true);
-    // TODO: Call TTS API
-    await new Promise(r => setTimeout(r, 2000));
-    setIsPlaying(false);
+    setError(null);
+    try {
+      const res = await fetch('/api/tts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, voiceType: selectedVoice, text }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json() as { error?: string };
+        setError(data.error ?? 'TTS 생성에 실패했습니다');
+        setIsPlaying(false);
+        return;
+      }
+
+      const audioBlob = await res.blob();
+      const audioUrl = URL.createObjectURL(audioBlob);
+      const audio = new Audio(audioUrl);
+      audio.onended = () => {
+        setIsPlaying(false);
+        URL.revokeObjectURL(audioUrl);
+      };
+      audio.onerror = () => {
+        setIsPlaying(false);
+        setError('오디오 재생에 실패했습니다');
+        URL.revokeObjectURL(audioUrl);
+      };
+      await audio.play();
+    } catch {
+      setError('TTS 생성에 실패했습니다');
+      setIsPlaying(false);
+    }
   };
 
   return (
@@ -92,6 +122,13 @@ export default function VoicePage({ params }: { params: { name: string } }) {
             ))}
           </div>
         </motion.div>
+
+        {/* Error message */}
+        {error && (
+          <div className="bg-red-50 border border-red-200 rounded-2xl px-5 py-3 text-sm text-red-600">
+            {error}
+          </div>
+        )}
 
         {/* Custom text */}
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="bg-white rounded-2xl p-5 shadow-md">
