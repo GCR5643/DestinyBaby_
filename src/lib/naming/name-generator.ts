@@ -2,12 +2,14 @@ import type { NamingInput, SuggestedName, Element } from '@/types';
 import { callLLM } from '@/lib/llm/llm-client';
 import { getHanjaEntry, getHanjaStrokes } from '@/lib/naming/hanja-strokes';
 
+// ── 한국 작명에서 실제 사용되는 오행별 인기 한자 ──────────────────────────────
+// 대한민국 출생신고 기준 인기 한자 위주, 중국식 전용 한자 제외
 const ELEMENT_HANJA_CHARS: Record<Element, string[]> = {
-  wood: ['林', '森', '木', '桂', '梅', '松', '竹', '花', '春', '茂'],
-  fire: ['炫', '曄', '炅', '昱', '晨', '曉', '明', '日', '光', '燦'],
-  earth: ['地', '垠', '坤', '大', '厚', '安', '泰', '基', '根', '固'],
-  metal: ['金', '鉉', '錫', '銀', '鐘', '堅', '剛', '鍊', '珍', '寶'],
-  water: ['海', '澤', '潤', '涵', '源', '淸', '泉', '湖', '洙', '濬'],
+  wood: ['英', '榮', '桓', '彬', '樹', '柱', '棟', '松', '梓', '蓮', '芝', '花'],
+  fire: ['炫', '映', '煥', '燦', '曙', '明', '晶', '昊', '星', '旻', '光', '暎'],
+  earth: ['恩', '安', '堅', '培', '聖', '在', '均', '奎', '翊', '宇', '基', '泰'],
+  metal: ['鎭', '鉉', '善', '成', '真', '珍', '瑞', '銀', '鑫', '鋼', '寶', '尚'],
+  water: ['浩', '潤', '泳', '洙', '河', '漢', '湖', '澄', '泰', '淵', '淑', '淨'],
 };
 
 // 오행 한국어 이름
@@ -28,14 +30,48 @@ const ELEMENT_MEANING: Record<Element, string> = {
   water: '지혜·유연·풍요를 상징하는 물·흐름 계열',
 };
 
-// LLM이 반환한 이름 중 HANJA_STROKE_DB에 존재하는 한자만 통과시키고,
-// 통과한 이름의 획수를 DB 기준으로 교정합니다.
+// ── 중국식 이름 필터 ──────────────────────────────────────────────────────────
+// 중국어 병음(pinyin) 음독을 한글로 옮긴 패턴 탐지
+const CHINESE_SYLLABLES: string[] = [
+  '쯔', '즈', '웨이', '린', '첸', '텐', '밍', '샹', '옌', '팡',
+  '칭', '훙', '징', '쉬', '치', '슈', '주이', '쿤', '량', '빈',
+  '잉', '췐', '줜', '퀀', '뤼', '뤄', '위안', '싱', '핑',
+  '탕', '톈', '위', '쑤', '쉬안', '지안', '리앙', '씬', '쓰',
+];
+// 한국 이름에 거의 쓰이지 않는 음절 패턴 (3글자 이상 + 외래식)
+function isChineseStyleName(name: string): boolean {
+  // 4글자 이상 한글 이름 → 거의 확실히 비한국식
+  if (name.length >= 4) return true;
+  // 음절 분리 후 중국식 음절 매칭
+  for (let i = 0; i < CHINESE_SYLLABLES.length; i++) {
+    if (name.includes(CHINESE_SYLLABLES[i])) return true;
+  }
+  return false;
+}
+
+// LLM이 반환한 이름 검증: 한국식 필터 + 한자 유효성 + 획수 교정
 function validateAndCorrectNames(
   raw: Array<{ name: string; hanja: string; reasonShort: string; sajuScore?: number }>,
   element: Element,
 ): SuggestedName[] {
   const valid: SuggestedName[] = [];
   for (const n of raw) {
+    // 1) 한글 이름이 없으면 스킵
+    if (!n.name || n.name.trim().length === 0) continue;
+
+    // 2) 중국식 이름 필터
+    if (isChineseStyleName(n.name)) {
+      console.warn(`[naming] 중국식 이름 필터링: "${n.name}" (${n.hanja})`);
+      continue;
+    }
+
+    // 3) 한글이 아닌 문자가 포함된 이름 필터 (한글 자모 범위: AC00-D7AF, 1100-11FF)
+    const hasNonKorean = /[^\uAC00-\uD7AF]/.test(n.name);
+    if (hasNonKorean) {
+      console.warn(`[naming] 비한글 문자 포함 이름 필터링: "${n.name}"`);
+      continue;
+    }
+
     if (!n.hanja) {
       valid.push({
         name: n.name,
@@ -108,20 +144,53 @@ export async function generateNames(input: NamingInput): Promise<SuggestedName[]
   // 음양 정보
   const dayYinYang = baseSaju.dayPillar.yin_yang === 'yin' ? '음(陰)' : '양(陽)';
 
-  const systemPrompt = `당신은 전통 명리학과 작명학에 정통한 작명 전문가입니다.
-사주 오행의 균형을 맞추고, 한자의 획수·음양오행·수리격을 고려하여
-아름답고 의미 있는 이름을 추천합니다.
+  const systemPrompt = `당신은 대한민국 전문 작명가입니다. 한국 명리학과 작명학에 정통합니다.
+
+## 핵심 원칙: 반드시 한국식 이름만 생성
+- 한국 부모가 2020~2025년 실제 출생신고에 사용하는 스타일의 이름만 추천하세요.
+- name 필드는 반드시 한글로, 한국인이 일상에서 자연스럽게 부르는 이름이어야 합니다.
+- "~아", "~이"로 부를 수 있는 자연스러운 한국 이름이어야 합니다.
+
+## 절대 금지 — 중국식 이름
+아래와 같은 중국식 이름 패턴은 절대 생성하지 마세요:
+- 중국어 음독을 한글로 옮긴 이름 (예: 린하오, 첸위, 메이린, 즈한, 웨이, 샤오)
+- 한국에서 사용하지 않는 외래식 음절 조합 (예: 쯔, 즈, 웨이, 린, 첸, 텐, 밍, 샹)
+- 3음절 이상의 비(非)한국식 이름
+- 중국 인명에서 흔한 한자 조합의 한글 음독 (예: 浩然→호연은 OK, 但 紫涵→자함은 NG)
+
+## 한국식 이름 예시 (이런 스타일로)
+남아: 서준, 도윤, 시우, 하준, 은우, 지호, 예준, 건우, 현우, 주원, 민준, 유준, 지환, 승현, 태윤
+여아: 서윤, 서아, 하윤, 지유, 하은, 수아, 예은, 지아, 윤서, 채원, 소율, 다인, 서현, 예린, 하린
+
+## 한자(hanja) 선택 기준
+- 한자는 한국 작명에서 실제 사용되는 글자만 선택하세요.
+- 한글 이름의 음(音)에 맞는 한자를 배정하세요 (이름이 먼저, 한자는 뜻을 보강).
+- 같은 음이라도 한국에서 인기있는 한자를 우선 선택하세요.
+
 반드시 JSON 배열 형식으로만 답변하세요. 다른 텍스트는 절대 포함하지 마세요.
 
 ${TONE_SYSTEM}`;
 
   const sajuBasis = input.babySaju ? '아기 사주' : '부모1 사주';
 
-  const userPrompt = `다음 사주 조건에 맞는 한국 아기 이름 5개를 추천해주세요.
+  // 성별에 따른 한국 인기 이름 레퍼런스
+  const genderExamples = input.gender === 'male'
+    ? '서준, 도윤, 시우, 하준, 은우, 지호, 예준, 건우, 현우, 주원, 민준, 유준, 지환, 승현, 태윤, 준혁, 지안, 이든, 시윤, 도현'
+    : input.gender === 'female'
+    ? '서윤, 서아, 하윤, 지유, 하은, 수아, 예은, 지아, 윤서, 채원, 소율, 다인, 서현, 예린, 하린, 수빈, 지윤, 시은, 유나, 채은'
+    : '서윤, 서준, 하윤, 도윤, 지유, 시우, 하은, 예준, 수아, 지호';
+
+  const userPrompt = `다음 사주 조건에 맞는 한국식 아기 이름 7개를 추천해주세요.
+
+## 최우선 규칙: 한국식 이름만
+- 한국 부모가 2020~2025년 출생신고에 실제 사용하는 스타일
+- 아래 레퍼런스와 비슷한 음절 감각의 이름: ${genderExamples}
+- 이름은 2글자(두 음절)를 기본으로 하되, 외자(1글자)도 1~2개 포함 가능
+- 중국식/일본식 이름 절대 금지
 
 ## 사주 분석 결과 (${sajuBasis} 기반)
 - 성별: ${input.gender === 'male' ? '남자' : input.gender === 'female' ? '여자' : '미정'}
-${input.surname ? `- 성씨: ${input.surname}${input.surnameHanja ? `(${input.surnameHanja})` : ''} — 성씨 '${input.surname}' + 이름 조합이 자연스럽게 어울려야 합니다` : ''}
+${input.surname ? `- 성씨: ${input.surname}${input.surnameHanja ? `(${input.surnameHanja})` : ''} — "${input.surname}" + 이름 전체를 소리내어 읽었을 때 자연스럽고 부르기 좋아야 합니다` : ''}
 - 일간(日干) 기운: ${ELEMENT_KO[babyMainElement as Element] ?? babyMainElement} / 음양: ${dayYinYang}
 - 부족한 오행: ${ELEMENT_KO[babyLacking as Element] ?? babyLacking}
 - 보완할 오행(생(生)하는 오행): ${ELEMENT_KO[complementElement]} — ${ELEMENT_MEANING[complementElement]}
@@ -130,20 +199,32 @@ ${input.siblingNames?.length ? `- 형제자매 이름: ${input.siblingNames.join
 ${input.preferences?.preferredElements?.length ? `- 선호 오행: ${input.preferences.preferredElements.map(e => ELEMENT_KO[e]).join(', ')}` : ''}
 ${input.preferences?.avoidChars?.length ? `- 피할 글자: ${input.preferences.avoidChars.join(', ')}` : ''}
 
+## 이름 생성 프로세스 (반드시 이 순서로)
+1. 먼저 한글 이름을 정합니다 — 한국인이 일상에서 "OO아~", "OO이~"로 자연스럽게 부를 수 있는 이름
+2. 그 한글 음(音)에 맞는 한자를 배정합니다 — 사주 보완 오행과 의미를 고려
+3. 성씨와 결합하여 전체 이름을 소리내어 읽어봅니다 — 어색하면 교체
+
 ## 한자 선택 기준
-- 보완 오행(${ELEMENT_KO[complementElement]}) 계열 추천 한자: ${targetChars.slice(0, 6).join(', ')}
+- 보완 오행(${ELEMENT_KO[complementElement]}) 계열 참고 한자: ${targetChars.slice(0, 8).join(', ')} (참고용이며 이에 국한하지 않아도 됨)
+- 한국 작명에서 널리 쓰이는 한자를 우선 선택 (예: 俊, 賢, 恩, 瑞, 秀, 智, 善, 美, 英, 浩, 泰, 民, 宇 등)
 - 음양 밸런스: 이름 전체가 음양이 조화를 이루도록 선택
 - 수리격: 원격(元格)·형격(亨格)·이격(利格)·정격(貞格) 중 길격(吉格) 위주
+
+## 자가 검증 체크리스트 (생성 후 반드시 확인)
+- [ ] 이름이 한국 유치원/학교에서 자연스럽게 불릴 수 있는가?
+- [ ] 중국어 병음(pinyin) 느낌이 나지 않는가?
+- [ ] 성씨 + 이름 전체를 소리내어 읽었을 때 어색하지 않은가?
+- [ ] 위 레퍼런스 이름들과 비슷한 감각인가?
 
 ## reasonShort 작성 지침
 - 선택한 한자가 왜 이 사주에 맞는지 오행과 연결하여 1~2문장으로 설명
 - 음양 밸런스나 수리격 특징 한 가지 포함
 - 따뜻하고 희망적인 어조 유지
 
-아래 형식의 JSON 배열로만 답변하세요. 반드시 배열([])로 시작하고 배열로 끝나야 합니다. 설명, 마크다운, 코드블록 없이 순수 JSON만 출력하세요:
+아래 형식의 JSON 배열로만 답변하세요. 배열([])로 시작하고 배열로 끝나야 합니다. 설명·마크다운·코드블록 없이 순수 JSON만:
 [
-  {"name": "지우", "hanja": "智宇", "reasonShort": "사주와의 연관성 설명 1-2문장", "sajuScore": 85},
-  {"name": "서연", "hanja": "瑞然", "reasonShort": "사주와의 연관성 설명 1-2문장", "sajuScore": 83}
+  {"name": "서준", "hanja": "瑞俊", "reasonShort": "瑞(상서로울 서)는 ${ELEMENT_KO[complementElement]} 기운을 보완하며, 俊(준걸 준)과 함께 밝고 빼어난 인재의 기운을 담았습니다.", "sajuScore": 88},
+  {"name": "하윤", "hanja": "夏潤", "reasonShort": "潤(윤택할 윤)이 사주의 수 기운을 채워 균형을 이루며, 따뜻한 여름의 생명력을 품고 있습니다.", "sajuScore": 85}
 ]`;
 
   type RawName = { name: string; hanja: string; reasonShort: string; sajuScore?: number };
@@ -167,9 +248,9 @@ ${input.preferences?.avoidChars?.length ? `- 피할 글자: ${input.preferences.
   }
 
   try {
-    const response = await callLLM(systemPrompt, userPrompt, { temperature: 0.8, maxTokens: 1200 });
+    const response = await callLLM(systemPrompt, userPrompt, { temperature: 0.7, maxTokens: 1500 });
     const raw = await parseLLMResponse(response);
-    let validated = validateAndCorrectNames(raw.slice(0, 10), complementElement);
+    let validated = validateAndCorrectNames(raw.slice(0, 12), complementElement);
 
     // 검증 통과한 이름이 5개 미만이면 1회 재시도
     if (validated.length < 5) {
