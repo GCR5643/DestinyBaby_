@@ -233,7 +233,12 @@ export default function NamingResultPage({ params }: { params: { id: string } })
   const [isLoggedIn, setIsLoggedIn] = useState<boolean | null>(null);
   const [showRegeneratePrompt, setShowRegeneratePrompt] = useState(false);
   const [isRegenerating, setIsRegenerating] = useState(false);
+  const [regenCount, setRegenCount] = useState(0);
   const [famousNameQuery, setFamousNameQuery] = useState<string | null>(null);
+
+  // 재생성 횟수 제한: 비로그인 3회, 로그인 5회
+  const MAX_REGEN = isLoggedIn ? 5 : 3;
+  const canRegenerate = regenCount < MAX_REGEN;
 
   const generateNamesPublic = trpc.naming.generateNamesPublic.useMutation();
 
@@ -245,6 +250,10 @@ export default function NamingResultPage({ params }: { params: { id: string } })
 
   const handleRegenerate = useCallback(async () => {
     if (isRegenerating) return;
+    if (!canRegenerate) {
+      showToast(`이름 추천은 최대 ${MAX_REGEN}회까지 가능해요.${!isLoggedIn ? ' 로그인하면 더 많이 받을 수 있어요!' : ''}`);
+      return;
+    }
     setIsRegenerating(true);
     try {
       const storedPayload = sessionStorage.getItem('guest-naming-payload');
@@ -256,13 +265,16 @@ export default function NamingResultPage({ params }: { params: { id: string } })
       const result = await generateNamesPublic.mutateAsync(payload);
       sessionStorage.setItem('guest-naming-result', JSON.stringify(result.names));
       setRealNames(result.names);
+      setRegenCount(prev => prev + 1);
       setShowRegeneratePrompt(false);
+      setOffset(0);
+      showToast(`새로운 이름이 도착했어요! (${regenCount + 1}/${MAX_REGEN})`);
     } catch (err) {
       alert(err instanceof Error ? err.message : 'AI 이름 추천에 실패했습니다. 다시 시도해주세요.');
     } finally {
       setIsRegenerating(false);
     }
-  }, [isRegenerating, generateNamesPublic, router]);
+  }, [isRegenerating, canRegenerate, MAX_REGEN, isLoggedIn, generateNamesPublic, router, regenCount]);
 
   // 로그인 상태 확인
   useEffect(() => {
@@ -539,14 +551,18 @@ export default function NamingResultPage({ params }: { params: { id: string } })
         {/* Load more / Regenerate */}
         {showRegeneratePrompt ? (
           <div className="bg-primary-50 border border-primary-200 rounded-2xl p-5 mb-6 text-center">
-            <p className="text-sm text-gray-700 mb-3">모든 이름을 확인했어요. 새로운 이름을 뽑아볼까요?</p>
+            <p className="text-sm text-gray-700 mb-3">
+              {canRegenerate
+                ? `모든 이름을 확인했어요. 새로운 이름을 뽑아볼까요? (${regenCount}/${MAX_REGEN})`
+                : `추천 횟수를 모두 사용했어요.${!isLoggedIn ? ' 로그인하면 더 받을 수 있어요!' : ''}`}
+            </p>
             <button
               onClick={handleRegenerate}
-              disabled={isRegenerating}
+              disabled={isRegenerating || !canRegenerate}
               className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl bg-primary-500 text-white font-medium hover:bg-primary-600 transition-colors mb-2 disabled:opacity-50"
             >
               <RefreshCw className={cn("w-4 h-4", isRegenerating && "animate-spin")} />
-              {isRegenerating ? 'AI가 새 이름을 찾고 있어요...' : '새로운 이름 추천받기'}
+              {isRegenerating ? 'AI가 새 이름을 찾고 있어요...' : !canRegenerate ? '추천 횟수 소진' : '새로운 이름 추천받기'}
             </button>
             <button
               onClick={() => router.push('/naming')}
@@ -704,15 +720,35 @@ export default function NamingResultPage({ params }: { params: { id: string } })
           </button>
         </div>
 
-        {/* Bottom nav */}
-        <button
-          onClick={isGuest ? handleRegenerate : () => router.push('/naming')}
-          disabled={isRegenerating}
-          className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl border-2 border-primary-300 text-primary-600 font-medium hover:bg-primary-50 transition-colors disabled:opacity-50"
-        >
-          <RefreshCw className={cn("w-4 h-4", isRegenerating && "animate-spin")} />
-          {isRegenerating ? 'AI가 새 이름을 찾고 있어요...' : '다시 추천받기'}
-        </button>
+        {/* Bottom nav — 재생성 */}
+        <div className="space-y-2">
+          <button
+            onClick={handleRegenerate}
+            disabled={isRegenerating || !canRegenerate}
+            className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl border-2 border-primary-300 text-primary-600 font-medium hover:bg-primary-50 transition-colors disabled:opacity-50"
+          >
+            <RefreshCw className={cn("w-4 h-4", isRegenerating && "animate-spin")} />
+            {isRegenerating
+              ? 'AI가 새 이름을 찾고 있어요...'
+              : !canRegenerate
+              ? `추천 횟수를 모두 사용했어요 (${MAX_REGEN}/${MAX_REGEN})`
+              : `다시 추천받기 (${regenCount}/${MAX_REGEN})`}
+          </button>
+          {!canRegenerate && !isLoggedIn && (
+            <button
+              onClick={() => router.push('/login?redirect=' + encodeURIComponent(window.location.pathname))}
+              className="w-full flex items-center justify-center gap-2 py-2.5 rounded-2xl text-sm text-primary-500 hover:bg-primary-50 transition-colors"
+            >
+              로그인하면 {5}회까지 추천받을 수 있어요 →
+            </button>
+          )}
+          <button
+            onClick={() => router.push('/naming')}
+            className="w-full flex items-center justify-center gap-2 py-2.5 rounded-2xl text-sm text-gray-400 hover:text-gray-600 transition-colors"
+          >
+            조건 변경해서 다시 추천받기
+          </button>
+        </div>
       </div>
 
       {/* Final Name Modal */}

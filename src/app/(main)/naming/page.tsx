@@ -102,13 +102,17 @@ export default function NamingPage() {
         siblingNames: data.siblingNames ? data.siblingNames.split(',').map(s => s.trim()) : undefined,
       };
 
+      // 재생성을 위해 payload는 항상 저장 (로그인/비로그인 공통)
+      sessionStorage.setItem('guest-naming-payload', JSON.stringify(payload));
+
       if (isGuest) {
         const result = await generateNamesPublic.mutateAsync(payload);
         sessionStorage.setItem('guest-naming-result', JSON.stringify(result.names));
-        sessionStorage.setItem('guest-naming-payload', JSON.stringify(payload));
         router.push('/naming/result/guest');
       } else {
         const result = await generateNames.mutateAsync(payload);
+        // 로그인 유저도 재생성 시 사용할 수 있도록 결과 저장
+        sessionStorage.setItem('guest-naming-result', JSON.stringify(result.names));
         router.push(`/naming/result/${result.resultId}`);
       }
     } catch (error) {
