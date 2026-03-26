@@ -2,14 +2,13 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, Sparkles, Calendar, User, Layers } from 'lucide-react';
+import { Home, Sparkles, Sun, User } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const NAV_ITEMS = [
   { href: '/', label: '홈', icon: Home },
+  { href: '/daily-fortune', label: '오늘운수', icon: Sun },
   { href: '/naming', label: '작명소', icon: Sparkles },
-  { href: '/birthdate', label: '탄생일', icon: Calendar },
-  { href: '/cards', label: '카드', icon: Layers },
   { href: '/profile', label: '프로필', icon: User },
 ];
 

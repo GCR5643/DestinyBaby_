@@ -6,6 +6,9 @@ import { userRouter } from './routers/user';
 import { cardsRouter } from './routers/cards';
 import { sajuRouter } from './routers/saju';
 import { birthdateRouter } from './routers/birthdate';
+import { fragmentsRouter } from './routers/fragments';
+import { checkinRouter } from './routers/checkin';
+import { dailyFortuneRouter } from './routers/daily-fortune';
 
 export const appRouter = createTRPCRouter({
   naming: namingRouter,
@@ -15,6 +18,9 @@ export const appRouter = createTRPCRouter({
   user: userRouter,
   saju: sajuRouter,
   birthdate: birthdateRouter,
+  fragments: fragmentsRouter,
+  checkin: checkinRouter,
+  dailyFortune: dailyFortuneRouter,
 });
 
 export type AppRouter = typeof appRouter;

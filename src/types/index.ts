@@ -252,3 +252,59 @@ export interface CardSajuExplanation {
   careerHint: string;
   probabilityBoost: number; // 0-20 사이 퍼센트
 }
+
+// ── Phase II: 오늘의 운수 + 운명의 조각 + 출석체크 ────────────────────────────
+
+export interface FortuneCard {
+  type: 'fortune' | 'praise' | 'love' | 'fact' | 'conversation' | 'parenting';
+  emoji: string;
+  title: string;
+  content: string;
+  color: string;
+}
+
+export interface DailyFortune {
+  id: string;
+  child_id: string;
+  user_id: string;
+  fortune_date: string;
+  fortune_data: FortuneCard[];
+  fragment_cost: number;
+  created_at: string;
+}
+
+export interface CheckinRecord {
+  id: string;
+  user_id: string;
+  checkin_date: string;
+  streak: number;
+  bonus_fragments: number;
+  created_at: string;
+}
+
+export interface FragmentTransaction {
+  id: string;
+  user_id: string;
+  amount: number;
+  type: 'checkin' | 'checkin_bonus' | 'purchase' | 'fortune_spend' | 'refund' | 'signup_bonus';
+  description: string | null;
+  balance_after: number;
+  reference_id: string | null;
+  created_at: string;
+}
+
+export interface CheckinResult {
+  streak: number;
+  bonus_fragments: number;
+  total_earned: number;
+  new_balance: number;
+}
+
+export interface FragmentPackage {
+  id: string;
+  name: string;
+  fragments: number;
+  price: number;
+  unitPrice: number;
+  discount?: string;
+}
