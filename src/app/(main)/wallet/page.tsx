@@ -7,6 +7,7 @@ import { trpc } from '@/lib/trpc/client';
 import { useUserStore } from '@/stores/userStore';
 import TransactionItem from '@/components/wallet/TransactionItem';
 import { useRouter } from 'next/navigation';
+import { SKIP_AUTH } from '@/lib/auth/skip-auth';
 
 const FRAGMENT_PACKS = [
   { id: 'handful' as const, name: '한 줌', fragments: 10, price: 1200, discount: null },
@@ -25,13 +26,13 @@ export default function WalletPage() {
   // Balance
   const { data: balanceData, refetch: refetchBalance } = trpc.fragments.getBalance.useQuery(
     undefined,
-    { enabled: !!user }
+    { enabled: !!user || SKIP_AUTH }
   );
 
   // Transaction history
   const { data: historyData } = trpc.fragments.getHistory.useQuery(
     { limit: 50 },
-    { enabled: !!user }
+    { enabled: !!user || SKIP_AUTH }
   );
 
   // Purchase mutation
@@ -57,7 +58,7 @@ export default function WalletPage() {
     return true;
   });
 
-  if (!user) {
+  if (!user && !SKIP_AUTH) {
     return (
       <div className="min-h-screen bg-ivory pb-24 flex flex-col items-center justify-center px-4">
         <Gem className="w-16 h-16 text-purple-400 mb-4" />

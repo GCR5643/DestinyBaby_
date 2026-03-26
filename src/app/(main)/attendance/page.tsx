@@ -9,6 +9,7 @@ import StreakHero from '@/components/attendance/StreakHero';
 import MonthlyCalendar from '@/components/attendance/MonthlyCalendar';
 import FragmentBadge from '@/components/wallet/FragmentBadge';
 import { useRouter } from 'next/navigation';
+import { SKIP_AUTH } from '@/lib/auth/skip-auth';
 
 // Milestone info
 const MILESTONES = [
@@ -29,19 +30,19 @@ export default function AttendancePage() {
   // Streak query
   const { data: streakData, refetch: refetchStreak } = trpc.checkin.getStreak.useQuery(
     undefined,
-    { enabled: !!user }
+    { enabled: !!user || SKIP_AUTH }
   );
 
   // Monthly history
   const { data: historyData, refetch: refetchHistory } = trpc.checkin.getMonthlyHistory.useQuery(
     { year: calYear, month: calMonth },
-    { enabled: !!user }
+    { enabled: !!user || SKIP_AUTH }
   );
 
   // Fragment balance
   const { data: balanceData, refetch: refetchBalance } = trpc.fragments.getBalance.useQuery(
     undefined,
-    { enabled: !!user }
+    { enabled: !!user || SKIP_AUTH }
   );
 
   // Checkin mutation
@@ -74,7 +75,7 @@ export default function AttendancePage() {
   const fragmentBalance = balanceData?.fragments ?? user?.destiny_fragments ?? 0;
   const checkinDates = historyData?.records ?? [];
 
-  if (!user) {
+  if (!user && !SKIP_AUTH) {
     return (
       <div className="min-h-screen bg-ivory pb-24 flex flex-col items-center justify-center px-4">
         <CalendarDays className="w-16 h-16 text-primary-400 mb-4" />

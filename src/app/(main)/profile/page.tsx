@@ -10,6 +10,7 @@ import { createClient } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
 import { useUserStore } from '@/stores/userStore';
 import { trpc } from '@/lib/trpc/client';
+import { SKIP_AUTH } from '@/lib/auth/skip-auth';
 
 interface ChildEntry {
   id: string;
@@ -83,7 +84,7 @@ export default function ProfilePage() {
     },
   ];
 
-  if (!user) {
+  if (!user && !SKIP_AUTH) {
     return (
       <div className="min-h-screen bg-ivory flex flex-col items-center justify-center px-6 pb-24">
         <div className="w-full max-w-sm md:max-w-md text-center">

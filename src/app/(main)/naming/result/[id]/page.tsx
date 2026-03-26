@@ -12,6 +12,7 @@ import { trpc } from '@/lib/trpc/client';
 import OhengRadarChart from '@/components/saju/OhengRadarChart';
 import type { OhengElements } from '@/components/saju/OhengRadarChart';
 import { createClient } from '@/lib/supabase/client';
+import { SKIP_AUTH } from '@/lib/auth/skip-auth';
 
 // ── Mock data pool ────────────────────────────────────────────────────────────
 
@@ -295,7 +296,7 @@ export default function NamingResultPage({ params }: { params: { id: string } })
 
   const handleSaveResult = useCallback(() => {
     if (isGuest) return;
-    if (isLoggedIn === false) {
+    if (isLoggedIn === false && !SKIP_AUTH) {
       router.push('/login?redirect=' + encodeURIComponent(window.location.pathname));
       return;
     }

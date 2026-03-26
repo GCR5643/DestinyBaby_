@@ -10,6 +10,7 @@ import FortuneCardLocked from '@/components/fortune/FortuneCardLocked';
 import UnlockBanner from '@/components/fortune/UnlockBanner';
 import FragmentBadge from '@/components/wallet/FragmentBadge';
 import { useRouter } from 'next/navigation';
+import { SKIP_AUTH } from '@/lib/auth/skip-auth';
 import type { FortuneCard as FortuneCardType } from '@/types';
 
 // 6종 카드 기본 메타
@@ -32,13 +33,13 @@ export default function DailyFortunePage() {
 
   // Get children list
   const { data: childrenData } = trpc.user.getChildren.useQuery(undefined, {
-    enabled: !!user,
+    enabled: !!user || SKIP_AUTH,
   });
 
   // Get fragment balance
   const { data: balanceData, refetch: refetchBalance } = trpc.fragments.getBalance.useQuery(
     undefined,
-    { enabled: !!user }
+    { enabled: !!user || SKIP_AUTH }
   );
 
   // Check if today's fortune exists
@@ -87,8 +88,8 @@ export default function DailyFortunePage() {
   const children = childrenData?.children || [];
   const fragmentBalance = balanceData?.fragments ?? user?.destiny_fragments ?? 0;
 
-  // 로그인 안 된 경우
-  if (!user) {
+  // 로그인 안 된 경우 (SKIP_AUTH 시 우회)
+  if (!user && !SKIP_AUTH) {
     return (
       <div className="min-h-screen bg-ivory pb-24 flex flex-col items-center justify-center px-4">
         <Sun className="w-16 h-16 text-amber-400 mb-4" />

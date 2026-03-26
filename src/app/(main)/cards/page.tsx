@@ -11,6 +11,7 @@ import { useUserStore } from '@/stores/userStore';
 import { useRouter } from 'next/navigation';
 import type { Card, UserCard, Grade, Element, CardSajuExplanation } from '@/types';
 import { pickCardTemplate } from '@/lib/cards/card-catalog';
+import { SKIP_AUTH } from '@/lib/auth/skip-auth';
 
 function generateGuestCard(): Card {
   const grades: Grade[] = ['N', 'N', 'N', 'N', 'R', 'R', 'R', 'SR', 'SR', 'SSR'];
@@ -132,7 +133,7 @@ export default function CardsPage() {
   };
 
   const handleDailyFreePull = () => {
-    if (!user) {
+    if (!user && !SKIP_AUTH) {
       router.push('/login');
       return;
     }
