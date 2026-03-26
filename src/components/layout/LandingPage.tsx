@@ -2,7 +2,7 @@
 
 import { motion } from 'framer-motion';
 import Link from 'next/link';
-import { Sparkles, Star, ChevronRight, Volume2, Calendar, ClipboardCheck } from 'lucide-react';
+import { Sparkles, Star, ChevronRight, Volume2, Calendar, ClipboardCheck, Sun } from 'lucide-react';
 import { useState, useRef } from 'react';
 
 // 고정 배경 원형 데이터 (Math.random() 대신 고정값으로 hydration mismatch 방지)
@@ -73,7 +73,7 @@ export default function LandingPage() {
   };
 
   return (
-    <div className="min-h-screen bg-ivory">
+    <div className="min-h-screen bg-ivory pb-20">
       {/* Hero */}
       <div className="relative overflow-hidden bg-gradient-to-br from-primary-600 via-primary-500 to-secondary-400 pt-16 pb-20 px-4 text-white">
         <div className="absolute inset-0 overflow-hidden">
@@ -119,9 +119,11 @@ export default function LandingPage() {
               탄생일 추천받기 (무료)
               <ChevronRight className="w-4 h-4" />
             </Link>
-            <Link href="/cards"
-              className="flex items-center justify-center gap-2 bg-white/20 border-2 border-white/40 text-white py-3.5 rounded-2xl font-bold text-base hover:bg-white/30 transition-all">
-              🃏 운명 카드 뽑기
+            <Link href="/daily-fortune"
+              className="flex items-center justify-center gap-2 bg-white text-primary-700 py-4 rounded-2xl font-black text-lg shadow-xl hover:shadow-2xl transition-all">
+              <Sun className="w-5 h-5 text-amber-500" />
+              오늘의 운세 보기
+              <ChevronRight className="w-4 h-4" />
             </Link>
             <Link href="/naming/review"
               className="flex items-center justify-center gap-2 bg-white/20 border-2 border-white/40 text-white py-3.5 rounded-2xl font-bold text-base hover:bg-white/30 transition-all">
@@ -302,6 +304,11 @@ export default function LandingPage() {
               className="inline-flex items-center justify-center gap-2 bg-white text-primary-700 py-4 px-8 rounded-2xl font-black text-lg shadow-xl">
               <Calendar className="w-5 h-5 text-primary-500" />
               무료로 탄생일 추천받기
+            </Link>
+            <Link href="/daily-fortune"
+              className="inline-flex items-center justify-center gap-2 bg-white text-primary-700 py-4 px-8 rounded-2xl font-black text-lg shadow-xl">
+              <Sun className="w-5 h-5 text-amber-500" />
+              오늘의 운세 보기
             </Link>
           </div>
           <p className="text-xs text-white/50 mt-3">전통 명리학 기반 · 오락 목적 · 결과 참고용</p>
