@@ -22,3 +22,11 @@
 {"t":0,"agent":"ae101cd","agent_type":"executor","event":"agent_stop","success":true,"duration_ms":498965}
 {"t":0,"agent":"accc7b9","agent_type":"designer","event":"agent_start","parent_mode":"none"}
 {"t":0,"agent":"accc7b9","agent_type":"designer","event":"agent_stop","success":true}
+{"t":0,"agent":"a338b30","agent_type":"product-manager","event":"agent_start","parent_mode":"none"}
+{"t":0,"agent":"ae30b50","agent_type":"designer","event":"agent_start","parent_mode":"none"}
+{"t":0,"agent":"a8b92db","agent_type":"product-analyst","event":"agent_start","parent_mode":"none"}
+{"t":0,"agent":"abbef1c","agent_type":"architect","event":"agent_start","parent_mode":"none"}
+{"t":0,"agent":"a8b92db","agent_type":"product-analyst","event":"agent_stop","success":true,"duration_ms":177297}
+{"t":0,"agent":"ae30b50","agent_type":"designer","event":"agent_stop","success":true,"duration_ms":528512}
+{"t":0,"agent":"abbef1c","agent_type":"architect","event":"agent_stop","success":true,"duration_ms":662101}
+{"t":0,"agent":"a338b30","agent_type":"product-manager","event":"agent_stop","success":true,"duration_ms":1592670}
