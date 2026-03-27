@@ -5,6 +5,7 @@ import { Gem, ArrowLeft, Check, Sparkles } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useUserStore } from '@/stores/userStore';
 import { trpc } from '@/lib/trpc/client';
+import { SKIP_AUTH } from '@/lib/auth/skip-auth';
 import Link from 'next/link';
 
 const FRAGMENT_PACKS = [
@@ -23,7 +24,7 @@ const FEATURES = [
 export default function FragmentsPage() {
   const router = useRouter();
   const { user } = useUserStore();
-  const { data: balanceData } = trpc.fragments.getBalance.useQuery(undefined, { enabled: !!user });
+  const { data: balanceData } = trpc.fragments.getBalance.useQuery(undefined, { enabled: !!user || SKIP_AUTH });
   const balance = balanceData?.fragments ?? user?.destiny_fragments ?? 0;
 
   return (

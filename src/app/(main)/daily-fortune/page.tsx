@@ -10,6 +10,7 @@ import FortuneCardLocked from '@/components/fortune/FortuneCardLocked';
 import FragmentBadge from '@/components/wallet/FragmentBadge';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { SKIP_AUTH } from '@/lib/auth/skip-auth';
 import type { FortuneCard as FortuneCardType } from '@/types';
 
 const CARD_META = [
@@ -55,18 +56,18 @@ export default function DailyFortunePage() {
   const [guestName, setGuestName] = useState('');
   const [guestBirthDate, setGuestBirthDate] = useState('');
 
-  // 로그인 유저 데이터
-  const { data: childrenData } = trpc.user.getChildren.useQuery(undefined, { enabled: !!user });
-  const { data: balanceData, refetch: refetchBalance } = trpc.fragments.getBalance.useQuery(undefined, { enabled: !!user });
+  // 로그인 유저 데이터 (SKIP_AUTH 시에도 활성화)
+  const { data: childrenData } = trpc.user.getChildren.useQuery(undefined, { enabled: !!user || SKIP_AUTH });
+  const { data: balanceData, refetch: refetchBalance } = trpc.fragments.getBalance.useQuery(undefined, { enabled: !!user || SKIP_AUTH });
 
   const children = childrenData?.children || [];
   const fragmentBalance = balanceData?.fragments ?? user?.destiny_fragments ?? 0;
-  const isGuest = !user;
+  const isGuest = !user && !SKIP_AUTH;
 
   // 오늘 이미 생성된 운세 확인 (로그인 유저)
   const { data: todayCheck } = trpc.dailyFortune.hasTodayFortune.useQuery(
     { childId: selectedChildId! },
-    { enabled: !!selectedChildId && !!user }
+    { enabled: !!selectedChildId && (!!user || SKIP_AUTH) }
   );
 
   // 로그인 유저: fortune mutation
