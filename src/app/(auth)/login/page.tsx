@@ -16,17 +16,25 @@ export default function LoginPage() {
   const handleOAuth = async (provider: 'google' | 'kakao') => {
     setIsLoading(true);
     setError('');
-    const supabase = createClient();
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider,
-      options: { redirectTo: `${window.location.origin}/auth/callback` },
-    });
-    if (error) {
-      // OAuth 실패 시에만 로딩 해제 (성공 시엔 브라우저가 OAuth 페이지로 이동하므로 로딩 유지)
-      setError(error.message);
+    try {
+      const supabase = createClient();
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider,
+        options: { redirectTo: `${window.location.origin}/auth/callback` },
+      });
+      if (error) {
+        setError(error.message);
+        setIsLoading(false);
+        return;
+      }
+      // createBrowserClient는 자동 리다이렉트를 안 할 수 있음 → 수동 리다이렉트
+      if (data?.url) {
+        window.location.href = data.url;
+      }
+    } catch (e) {
+      setError('로그인 중 오류가 발생했습니다. 다시 시도해주세요.');
       setIsLoading(false);
     }
-    // 에러가 없으면 브라우저가 OAuth provider로 리다이렉트 중이므로 isLoading을 true로 유지
   };
 
   const handleGuest = () => {
