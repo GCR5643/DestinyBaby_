@@ -66,10 +66,10 @@ function calculateStrokes(
   const surnameStrokes =
     surnameHanja
       ? getHanjaStrokes(surnameHanja.charAt(0))
-      : (COMMON_SURNAME_STROKES[surnameHangul] ?? getHanjaStrokes(hanjaChars[0] ?? ''));
+      : (COMMON_SURNAME_STROKES[surnameHangul] ?? 8);
 
-  // 이름 부분 한자 (성씨 제외): hanja는 성씨 포함 전체 한자열
-  const nameHanjaChars = hanjaChars.slice(1);
+  // 이름 부분 한자: surnameHanja가 없으면 hanja 전체가 이름 한자
+  const nameHanjaChars = surnameHanja ? hanjaChars.slice(1) : hanjaChars;
   const nameStrokesArr = nameHanjaChars.map(c => getHanjaStrokes(c));
 
   const gyeok = calculateFiveGyeok(
@@ -95,29 +95,39 @@ export async function analyzeName(
   hanja: string,
   sajuResult: SajuResult,
   parentSaju1: SajuResult,
-  parentSaju2?: SajuResult
+  parentSaju2?: SajuResult,
+  surname?: string,
 ): Promise<NamingReport> {
-  // 한글 성씨 / 이름 분리
-  const surnameHangul = name.charAt(0);
-  const nameHangul = name.slice(1);
+  // 성씨/이름 분리: surname이 명시되면 그걸 사용, 아니면 name 첫 글자
+  const surnameHangul = surname ?? name.charAt(0);
+  const nameHangul = surname ? name : name.slice(1);
 
-  const strokeAnalysis = calculateStrokes(hanja, surnameHangul);
+  // hanja가 이름 한자만인지(성씨 제외), 성씨 포함인지 판단
+  // hanja 길이 == nameHangul 길이 → 이름 한자만 (성씨 미포함)
+  // hanja 길이 == name 길이 → 성씨 포함
+  const hanjaIsNameOnly = hanja.length === nameHangul.length;
+  const nameHanjaChars = hanjaIsNameOnly ? Array.from(hanja) : Array.from(hanja).slice(1);
+  const allHanjaChars = hanjaIsNameOnly ? Array.from(hanja) : Array.from(hanja);
+
+  const strokeAnalysis = calculateStrokes(
+    hanjaIsNameOnly ? hanja : hanja, // 5격 계산용
+    surnameHangul,
+    hanjaIsNameOnly ? undefined : hanja.charAt(0), // 성씨 한자
+  );
 
   // 음양 배합 분석
-  const hanjaChars = hanja.split('');
-  const surnameStrokeCount = getHanjaStrokes(hanjaChars[0] ?? '');
-  const nameStrokeArr = hanjaChars.slice(1).map(c => getHanjaStrokes(c));
+  const surnameStrokeCount = COMMON_SURNAME_STROKES[surnameHangul] ?? 8;
+  const nameStrokeArr = nameHanjaChars.map(c => getHanjaStrokes(c));
   const eumyangResult = analyzeEumyang(surnameStrokeCount, nameStrokeArr);
 
-  // 발음 오행 분석: name 파라미터는 한글 전체 이름(성+이름)
+  // 발음 오행 분석
   const pronOhengResult = analyzePronunciationOheng(surnameHangul, nameHangul);
 
-  // 자원오행 분석: 한자 의미 기반 사주보완 적합도 (가중치 40%)
-  const nameHanjaOnly = hanjaChars.slice(1); // 성씨 제외 이름 한자
-  const jawonResult = analyzeJawonOheng(nameHanjaOnly, sajuResult.lackingElement);
+  // 자원오행 분석: 이름 한자만 (성씨 제외)
+  const jawonResult = analyzeJawonOheng(nameHanjaChars, sajuResult.lackingElement);
 
-  // 불용한자 검사
-  const bulyongResult = validateBulyong(hanjaChars);
+  // 불용한자 검사: 이름 한자만 검사
+  const bulyongResult = validateBulyong(nameHanjaChars);
 
   // ──── 전문가 기준 종합 점수 (가중치 재조정) ────
   // 출처: 복수 전문 작명사 공통 기준

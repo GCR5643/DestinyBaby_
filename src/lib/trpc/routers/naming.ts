@@ -133,13 +133,14 @@ export const namingRouter = createTRPCRouter({
       parent1BirthDate: z.string(),
       parent2BirthDate: z.string().optional(),
       babyBirthDate: z.string().optional(),
+      surname: z.string().optional(),
     }))
     .mutation(async ({ ctx, input }) => {
       const parent1Saju = calculateSaju(input.parent1BirthDate);
       const parent2Saju = input.parent2BirthDate ? calculateSaju(input.parent2BirthDate) : undefined;
       const babySaju = input.babyBirthDate ? calculateSaju(input.babyBirthDate) : parent1Saju;
 
-      const report = await analyzeName(input.name, input.hanja, babySaju, parent1Saju, parent2Saju);
+      const report = await analyzeName(input.name, input.hanja, babySaju, parent1Saju, parent2Saju, input.surname);
 
       const { data } = await ctx.supabase
         .from('naming_reports')
@@ -267,12 +268,18 @@ export const namingRouter = createTRPCRouter({
         ? calculateSaju(input.parent2BirthDate, input.parent2BirthTime)
         : undefined;
 
+      // name이 성+이름(예: "이현우")이면 첫 글자를 성씨로 분리
+      const fullName = input.name;
+      const surname = fullName.length >= 2 ? fullName.charAt(0) : undefined;
+      const givenName = surname ? fullName.slice(1) : fullName;
+
       const report = await analyzeName(
-        input.name,
+        givenName,
         input.hanja || '',
         babySaju,
         parent1Saju,
         parent2Saju,
+        surname,
       );
 
       // 부모 사주가 입력된 경우 부모-자녀 궁합 분석 추가
