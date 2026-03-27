@@ -220,7 +220,7 @@ export default function DailyFortunePage() {
                   <div className="bg-gradient-to-r from-primary-50 to-secondary-50 rounded-2xl p-5 text-center">
                     <p className="text-sm font-bold text-gray-800 mb-1">매일 무료 운세 + 조각 10개 🎁</p>
                     <p className="text-xs text-gray-500 mb-3">회원가입하면 매일 첫 아이 운세가 무료!</p>
-                    <Link href="/login" className="inline-flex items-center gap-2 bg-primary-500 text-white px-6 py-2.5 rounded-xl font-bold text-sm">
+                    <Link href="/login?redirect=/daily-fortune" className="inline-flex items-center gap-2 bg-primary-500 text-white px-6 py-2.5 rounded-xl font-bold text-sm">
                       <LogIn className="w-4 h-4" /> 무료 회원가입
                     </Link>
                   </div>
@@ -258,7 +258,7 @@ export default function DailyFortunePage() {
                   회원가입하면 매일 첫 아이 운세 무료!<br />
                   지금 가입하면 <strong className="text-primary-600">운명의 조각 10개</strong>를 드려요 ✨
                 </p>
-                <Link href="/login" className="inline-flex items-center gap-2 bg-primary-500 text-white px-8 py-3.5 rounded-xl font-bold text-base shadow-lg">
+                <Link href="/login?redirect=/daily-fortune" className="inline-flex items-center gap-2 bg-primary-500 text-white px-8 py-3.5 rounded-xl font-bold text-base shadow-lg">
                   <LogIn className="w-5 h-5" /> 무료 회원가입하기
                 </Link>
                 <p className="text-xs text-gray-400 mt-3">내일 다시 무료 3회 충전돼요</p>

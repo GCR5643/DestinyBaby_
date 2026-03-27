@@ -5,13 +5,15 @@ export const dynamic = 'force-dynamic';
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 
 export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const redirectTo = searchParams.get('redirect') || '/naming';
 
   const handleOAuth = async (provider: 'google' | 'kakao') => {
     setIsLoading(true);
@@ -39,7 +41,7 @@ export default function LoginPage() {
 
   const handleGuest = () => {
     document.cookie = 'destiny-baby-guest=true; path=/; Max-Age=3600';
-    router.push('/naming');
+    router.push(redirectTo);
   };
 
   return (
