@@ -65,7 +65,7 @@ export default function WalletPage() {
         <h1 className="text-xl font-bold text-gray-800 mb-2">운명의 조각</h1>
         <p className="text-gray-500 text-sm text-center mb-6">로그인 후 이용 가능합니다</p>
         <button
-          onClick={() => router.push('/login')}
+          onClick={() => router.push('/login?redirect=/wallet')}
           className="bg-primary-500 text-white px-6 py-3 rounded-xl font-bold text-sm"
         >
           로그인하기

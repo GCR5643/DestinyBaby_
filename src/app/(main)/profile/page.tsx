@@ -95,7 +95,7 @@ export default function ProfilePage() {
           <h1 className="text-xl font-bold text-gray-800 mb-2">로그인이 필요해요</h1>
           <p className="text-gray-500 text-sm mb-8">로그인하고 모든 기능을 이용해보세요</p>
           <Link
-            href="/login"
+            href="/login?redirect=/profile"
             className="block w-full bg-primary-500 text-white text-center py-4 rounded-2xl font-bold text-base shadow-lg mb-3"
           >
             카카오 / 구글 로그인

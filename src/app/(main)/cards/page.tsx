@@ -134,7 +134,7 @@ export default function CardsPage() {
 
   const handleDailyFreePull = () => {
     if (!user && !SKIP_AUTH) {
-      router.push('/login');
+      router.push('/login?redirect=/cards');
       return;
     }
     dailyFreePullMutation.mutate();
@@ -195,7 +195,7 @@ export default function CardsPage() {
             <p className="text-blue-200/70 text-xs mt-0.5">게스트 무료 뽑기 {Math.max(0, 3 - guestPulls)}회 남음</p>
           </div>
           <button
-            onClick={() => router.push('/login')}
+            onClick={() => router.push('/login?redirect=/cards')}
             className="flex-shrink-0 bg-white text-primary-600 px-3 py-1.5 rounded-full text-xs font-bold"
           >
             로그인
@@ -318,7 +318,7 @@ export default function CardsPage() {
             {isGuest ? (
               <div className="text-center py-12 text-white/50 text-sm">
                 <p className="mb-3">카드를 저장하려면 로그인이 필요해요</p>
-                <button onClick={() => router.push('/login')} className="bg-white/20 text-white px-4 py-2 rounded-xl text-sm font-semibold">로그인하기</button>
+                <button onClick={() => router.push('/login?redirect=/cards')} className="bg-white/20 text-white px-4 py-2 rounded-xl text-sm font-semibold">로그인하기</button>
               </div>
             ) : collectionQuery.isLoading ? (
               <div className="text-center py-12 text-white/50 text-sm">불러오는 중...</div>
@@ -342,7 +342,7 @@ export default function CardsPage() {
             <div className="text-4xl mb-3">🔐</div>
             <h3 className="font-black text-gray-900 mb-2">로그인이 필요해요</h3>
             <p className="text-sm text-gray-500 mb-5">무료 뽑기 3회 이후엔<br/>로그인이 필요합니다</p>
-            <button onClick={() => router.push('/login')} className="w-full bg-primary-500 text-white py-3 rounded-2xl font-bold mb-2">로그인하기</button>
+            <button onClick={() => router.push('/login?redirect=/cards')} className="w-full bg-primary-500 text-white py-3 rounded-2xl font-bold mb-2">로그인하기</button>
             <button onClick={() => setShowLoginPrompt(false)} className="w-full text-gray-400 text-sm">나중에</button>
           </div>
         </div>

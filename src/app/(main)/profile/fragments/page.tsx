@@ -129,7 +129,7 @@ export default function FragmentsPage() {
             ))}
           </div>
           {!user && (
-            <Link href="/login" className="block mt-3 text-center bg-primary-500 text-white py-2.5 rounded-xl font-bold text-sm">
+            <Link href="/login?redirect=/profile/fragments" className="block mt-3 text-center bg-primary-500 text-white py-2.5 rounded-xl font-bold text-sm">
               회원가입하고 조각 10개 받기
             </Link>
           )}

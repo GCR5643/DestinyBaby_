@@ -26,19 +26,25 @@ export async function updateSession(request: NextRequest) {
 
   const { data: { user } } = await supabase.auth.getUser();
 
+  // SKIP_AUTH: 테스트용 전체 인증 우회
+  if (process.env.NEXT_PUBLIC_SKIP_AUTH === 'true') {
+    return supabaseResponse;
+  }
+
   const protectedPaths = ['/saju', '/cards', '/community', '/shop', '/profile', '/credits', '/naming'];
   const isProtected = protectedPaths.some(p => request.nextUrl.pathname.startsWith(p));
 
   if (!user && isProtected) {
-    // Allow guests to access certain routes with the guest cookie
+    // Allow guests to access most routes with the guest cookie
     const isGuest = request.cookies.get('destiny-baby-guest')?.value === 'true';
-    const guestAllowedPaths = ['/naming', '/cards', '/saju'];
+    const guestAllowedPaths = ['/naming', '/cards', '/saju', '/community', '/profile', '/credits'];
     const isGuestAllowed = guestAllowedPaths.some(p => request.nextUrl.pathname.startsWith(p));
     if (isGuest && isGuestAllowed) {
       return supabaseResponse;
     }
     const url = request.nextUrl.clone();
     url.pathname = '/login';
+    url.searchParams.set('redirect', request.nextUrl.pathname);
     return NextResponse.redirect(url);
   }
 

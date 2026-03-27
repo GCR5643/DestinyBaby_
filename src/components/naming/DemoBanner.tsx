@@ -12,7 +12,7 @@ export function DemoBanner() {
 
   const handleLogin = () => {
     document.cookie = 'destiny-baby-guest=; Max-Age=0; path=/';
-    router.push('/login');
+    router.push('/login?redirect=/naming');
   };
 
   return (

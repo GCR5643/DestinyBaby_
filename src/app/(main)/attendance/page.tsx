@@ -84,7 +84,7 @@ export default function AttendancePage() {
           매일 출석하고 운명의 조각을 모아보세요
         </p>
         <button
-          onClick={() => router.push('/login')}
+          onClick={() => router.push('/login?redirect=/attendance')}
           className="bg-primary-500 text-white px-6 py-3 rounded-xl font-bold text-sm"
         >
           로그인하고 시작하기
