@@ -1,10 +1,43 @@
 import { z } from 'zod';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { createTRPCRouter, protectedProcedure } from '@/lib/trpc/server';
+import { createTRPCRouter, protectedProcedure, publicProcedure } from '@/lib/trpc/server';
 import { generateDailyFortune } from '@/lib/llm/fortune-prompts';
 import type { DailyFortune, SajuResult, Child } from '@/types';
 
 export const dailyFortuneRouter = createTRPCRouter({
+  // 게스트용: 로그인 없이 이름+생년월일로 운세 생성
+  getGuestFortune: publicProcedure
+    .input(z.object({
+      childName: z.string().min(1).max(20),
+      birthDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+      birthTime: z.string().optional(), // HH:mm or empty
+    }))
+    .mutation(async ({ input }) => {
+      const today = new Date().toISOString().split('T')[0];
+
+      // 간단한 사주 정보 생성 (생년월일 기반 오행 추정)
+      const birthMonth = parseInt(input.birthDate.split('-')[1]);
+      const elementByMonth: Record<number, 'wood' | 'fire' | 'earth' | 'metal' | 'water'> = {
+        1: 'water', 2: 'wood', 3: 'wood', 4: 'earth', 5: 'fire', 6: 'fire',
+        7: 'earth', 8: 'metal', 9: 'metal', 10: 'earth', 11: 'water', 12: 'water',
+      };
+      const mainElement = elementByMonth[birthMonth] || 'wood';
+
+      try {
+        const cards = await generateDailyFortune(
+          input.childName,
+          { mainElement, lackingElement: mainElement === 'water' ? 'fire' : 'water', dayPillar: { heavenlyStem: '미상' }, strongElements: [mainElement], weakElements: [] } as unknown as SajuResult,
+          today,
+        );
+        return { success: true as const, cards };
+      } catch (err) {
+        console.error('[guestFortune] LLM failed:', err);
+        // fallback은 fortune-prompts의 getDefaultFortuneCards에서 처리됨
+        const { getDefaultFortuneCards } = await import('@/lib/llm/fortune-prompts');
+        return { success: true as const, cards: getDefaultFortuneCards(input.childName, mainElement) };
+      }
+    }),
+
   // Generate (or return cached) daily fortune for a child, costs 1 fragment
   getDailyFortune: protectedProcedure
     .input(z.object({
