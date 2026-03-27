@@ -4,7 +4,7 @@ export const dynamic = 'force-dynamic';
 
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Settings, CreditCard, LogOut, ChevronRight, Heart, X, Calendar, Sparkles, LogIn } from 'lucide-react';
+import { Settings, CreditCard, LogOut, ChevronRight, Heart, X, Calendar, Sparkles, LogIn, Gem } from 'lucide-react';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
@@ -78,6 +78,7 @@ export default function ProfilePage() {
     {
       title: '계정',
       items: [
+        { href: '/profile/fragments', icon: Gem, label: '운명의 조각', desc: '충전 · 사용내역 · 과금 안내', badge: `${user?.destiny_fragments || 0}개` as number | string | undefined },
         { href: '/credits', icon: CreditCard, label: '크레딧 충전', desc: undefined as string | undefined, badge: `${user?.credits || 0} 크레딧` as number | string | undefined },
         { href: '/profile/settings', icon: Settings, label: '프로필 · 계정 관리', desc: '닉네임 · 이메일 · 알림 설정', badge: undefined as number | string | undefined },
       ],

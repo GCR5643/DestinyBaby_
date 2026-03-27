@@ -38,7 +38,8 @@ export const dailyFortuneRouter = createTRPCRouter({
       }
     }),
 
-  // Generate (or return cached) daily fortune for a child, costs 1 fragment
+  // Generate (or return cached) daily fortune for a child
+  // 첫 번째 아이는 하루 1회 무료, 추가 아이는 조각 1개 차감
   getDailyFortune: protectedProcedure
     .input(z.object({
       childId: z.string().uuid(),
@@ -59,60 +60,79 @@ export const dailyFortuneRouter = createTRPCRouter({
           return {
             success: true as const,
             fortune: cached as DailyFortune,
+            wasFree: false,
           };
         }
       } catch {
         // Not found — continue to generate
       }
 
-      // Deduct 1 fragment via RPC, with manual fallback
-      let deductOk = false;
+      // 오늘 이미 무료로 생성한 운수가 있는지 확인
+      let todayFortuneCount = 0;
       try {
-        const { error: rpcError } = await ctx.supabase.rpc('deduct_fragments', {
-          p_user_id: ctx.user.id,
-          p_amount: 1,
-          p_type: 'fortune_spend',
-          p_description: '오늘의 운수 열람',
-        });
-        if (!rpcError) {
-          deductOk = true;
-        }
+        const { count } = await ctx.supabase
+          .from('daily_fortunes')
+          .select('id', { count: 'exact', head: true })
+          .eq('user_id', ctx.user.id)
+          .eq('fortune_date', today);
+        todayFortuneCount = count ?? 0;
       } catch {
-        // RPC unavailable — fall through to manual deduction
+        // table may not exist
       }
 
-      if (!deductOk) {
-        // Manual balance check + deduction
-        const { data: userData } = await ctx.supabase
-          .from('users')
-          .select('destiny_fragments')
-          .eq('id', ctx.user.id)
-          .single();
+      // 첫 번째 아이(오늘 첫 운세)는 무료
+      const isFree = todayFortuneCount === 0;
 
-        const currentBalance = (userData as { destiny_fragments?: number } | null)?.destiny_fragments ?? 0;
-
-        if (currentBalance < 1) {
-          return {
-            success: false as const,
-            error: 'insufficient_fragments' as const,
-            balance: currentBalance,
-          };
+      if (!isFree) {
+        // 추가 아이는 조각 1개 차감
+        let deductOk = false;
+        try {
+          const { error: rpcError } = await ctx.supabase.rpc('deduct_fragments', {
+            p_user_id: ctx.user.id,
+            p_amount: 1,
+            p_type: 'fortune_spend',
+            p_description: '오늘의 운수 열람 (추가 아이)',
+          });
+          if (!rpcError) {
+            deductOk = true;
+          }
+        } catch {
+          // RPC unavailable
         }
 
-        await ctx.supabase
-          .from('users')
-          .update({ destiny_fragments: currentBalance - 1 })
-          .eq('id', ctx.user.id);
+        if (!deductOk) {
+          const { data: userData } = await ctx.supabase
+            .from('users')
+            .select('destiny_fragments')
+            .eq('id', ctx.user.id)
+            .single();
 
-        try {
-          await ctx.supabase.from('fragment_transactions').insert({
-            user_id: ctx.user.id,
-            amount: -1,
-            type: 'fortune_spend',
-            description: '오늘의 운수 열람',
-          });
-        } catch {
-          // table may not exist yet
+          const currentBalance = (userData as { destiny_fragments?: number } | null)?.destiny_fragments ?? 0;
+
+          if (currentBalance < 1) {
+            return {
+              success: false as const,
+              error: 'insufficient_fragments' as const,
+              balance: currentBalance,
+              wasFree: false,
+            };
+          }
+
+          await ctx.supabase
+            .from('users')
+            .update({ destiny_fragments: currentBalance - 1 })
+            .eq('id', ctx.user.id);
+
+          try {
+            await ctx.supabase.from('fragment_transactions').insert({
+              user_id: ctx.user.id,
+              amount: -1,
+              type: 'fortune_spend',
+              description: '오늘의 운수 열람 (추가 아이)',
+            });
+          } catch {
+            // table may not exist yet
+          }
         }
       }
 
@@ -125,8 +145,8 @@ export const dailyFortuneRouter = createTRPCRouter({
         .single();
 
       if (childError || !childData) {
-        // Refund fragment on failure
-        await refundFragment(ctx.supabase, ctx.user.id, 'children 조회 실패로 운수 생성 취소');
+        // Refund fragment on failure (무료였으면 환불 불필요)
+        if (!isFree) await refundFragment(ctx.supabase, ctx.user.id, 'children 조회 실패로 운수 생성 취소');
         return {
           success: false as const,
           error: 'child_not_found' as const,
@@ -146,7 +166,7 @@ export const dailyFortuneRouter = createTRPCRouter({
         );
       } catch (err) {
         console.error('[dailyFortune] LLM generation failed:', err);
-        await refundFragment(ctx.supabase, ctx.user.id, 'LLM 오류로 운수 생성 취소');
+        if (!isFree) await refundFragment(ctx.supabase, ctx.user.id, 'LLM 오류로 운수 생성 취소');
         return {
           success: false as const,
           error: 'generation_failed' as const,
@@ -162,14 +182,14 @@ export const dailyFortuneRouter = createTRPCRouter({
           user_id: ctx.user.id,
           fortune_date: today,
           fortune_data: cards,
-          fragment_cost: 1,
+          fragment_cost: isFree ? 0 : 1,
         })
         .select('id, fortune_date, fortune_data, created_at, child_id, user_id, fragment_cost')
         .single();
 
       if (insertError || !inserted) {
         console.error('[dailyFortune] Insert failed:', insertError);
-        await refundFragment(ctx.supabase, ctx.user.id, 'DB 저장 실패로 운수 생성 취소');
+        if (!isFree) await refundFragment(ctx.supabase, ctx.user.id, 'DB 저장 실패로 운수 생성 취소');
         return {
           success: false as const,
           error: 'save_failed' as const,
@@ -180,6 +200,7 @@ export const dailyFortuneRouter = createTRPCRouter({
       return {
         success: true as const,
         fortune: inserted as DailyFortune,
+        wasFree: isFree,
       };
     }),
 
