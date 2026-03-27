@@ -13,19 +13,23 @@ import { ELEMENT_COLOR_CLASS, ELEMENT_ICON, recommendCareers } from '@/lib/saju/
 import type { CareerRecommendation } from '@/lib/saju/career-matcher';
 import { calculateSaju } from '@/lib/saju/saju-calculator';
 
-function ScoreCircle({ score, label }: { score: number; label: string }) {
-  const circumference = 2 * Math.PI * 36;
+function ScoreCircle({ score, label, size = 'md' }: { score: number; label: string; size?: 'md' | 'lg' }) {
+  const isLg = size === 'lg';
+  const r = isLg ? 52 : 36;
+  const dim = isLg ? 120 : 80;
+  const svgSize = isLg ? 'w-32 h-32' : 'w-24 h-24';
+  const circumference = 2 * Math.PI * r;
   const offset = circumference - (score / 100) * circumference;
   return (
     <div className="flex flex-col items-center">
-      <div className="relative w-24 h-24">
-        <svg className="w-24 h-24 -rotate-90" viewBox="0 0 80 80">
-          <circle cx="40" cy="40" r="36" fill="none" stroke="#e5e7eb" strokeWidth="6" />
+      <div className={`relative ${isLg ? 'w-32 h-32' : 'w-24 h-24'}`}>
+        <svg className={`${svgSize} -rotate-90`} viewBox={`0 0 ${dim} ${dim}`}>
+          <circle cx={dim / 2} cy={dim / 2} r={r} fill="none" stroke="#e5e7eb" strokeWidth={isLg ? 8 : 6} />
           <motion.circle
-            cx="40" cy="40" r="36"
+            cx={dim / 2} cy={dim / 2} r={r}
             fill="none"
             stroke="#6C5CE7"
-            strokeWidth="6"
+            strokeWidth={isLg ? 8 : 6}
             strokeDasharray={circumference}
             initial={{ strokeDashoffset: circumference }}
             animate={{ strokeDashoffset: offset }}
@@ -34,11 +38,38 @@ function ScoreCircle({ score, label }: { score: number; label: string }) {
           />
         </svg>
         <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <span className="text-xl font-bold text-primary-600">{score}</span>
+          <span className={`font-bold text-primary-600 ${isLg ? 'text-3xl' : 'text-xl'}`}>{score}</span>
         </div>
       </div>
-      <p className="text-xs text-gray-500 mt-1">{label}</p>
+      <p className="text-xs text-gray-500 mt-1 text-center">{label}</p>
     </div>
+  );
+}
+
+// 오행 진행 바 색상
+const ELEMENT_BAR_COLOR: Record<string, string> = {
+  wood:  '#22c55e',
+  fire:  '#ef4444',
+  earth: '#eab308',
+  metal: '#94a3b8',
+  water: '#3b82f6',
+};
+
+// 자원오행 element → 한국어
+const ELEMENT_KR: Record<string, string> = {
+  wood: '목(木)', fire: '화(火)', earth: '토(土)', metal: '금(金)', water: '수(水)',
+};
+
+function ElementBadge({ element }: { element: string }) {
+  const color = ELEMENT_BAR_COLOR[element] ?? '#9ca3af';
+  const label = ELEMENT_KR[element] ?? element;
+  return (
+    <span
+      className="inline-block px-2.5 py-1 rounded-full text-xs font-bold text-white"
+      style={{ backgroundColor: color }}
+    >
+      {label}
+    </span>
   );
 }
 
@@ -170,9 +201,38 @@ export default function NamingReportPage({ params }: { params: { id: string } })
     sajuFitScore: 92,
     parentCompatibility: { mom: 88, dad: 91, combined: 90 },
     overallComment: `"${name}"는 아이의 사주에 완벽하게 어울리는 이름입니다. 지혜와 넓은 마음을 가진 사람으로 성장할 것입니다. 부모님의 기운과도 매우 잘 어울려, 가족 전체가 행복하고 건강한 삶을 누릴 것으로 보입니다.`,
+    eumyangAnalysis: {
+      pattern: ['양', '음'],
+      patternString: '양음',
+      score: 85,
+      luck: '길',
+      description: '양과 음이 조화롭게 배합되어 균형 잡힌 기운을 지닙니다.',
+    },
+    pronunciationOheng: {
+      elements: ['木', '水'],
+      pattern: '목-수',
+      relations: ['상생'],
+      score: 90,
+      description: '초성의 오행이 상생하여 발음이 힘차고 조화롭습니다.',
+    },
+    jawonOheng: {
+      elements: ['water', 'wood'],
+      matchCount: 2,
+      generateCount: 1,
+      score: 88,
+    },
+    bulyongCheck: {
+      passed: true,
+      issues: [],
+      score: 100,
+    },
+    expertScore: 90,
   };
 
   const report: NamingReport = dbReport?.reportData ?? fallbackReport;
+
+  // 전문가 종합 점수: expertScore 없으면 sajuFitScore fallback
+  const mainScore = report.expertScore ?? report.sajuFitScore;
 
   const mainElement = (report.yinYangFiveElements.elements[0] ?? 'water') as string;
   const elemRec = ELEMENT_RECOMMENDATIONS[mainElement] ?? ELEMENT_RECOMMENDATIONS.water;
@@ -199,7 +259,6 @@ export default function NamingReportPage({ params }: { params: { id: string } })
   const blessingMessage = `사랑스러운 ${name}이(가) 이 세상에 태어나 주어 감사해요. ${name}의 사주는 ${elementDesc}을 품고 있어요. 부모님의 사랑을 듬뿍 받으며, 자신만의 아름다운 길을 걸어갈 거예요. ✨`;
 
   // 직업 추천: 오행 분포 기반 SajuResult 구성 후 다차원 추천
-  // element → 양간 천간 (갑=木양, 병=火양, 무=土양, 경=金양, 임=水양)
   const ELEMENT_TO_YANG_STEM: Record<string, string> = {
     wood: '갑', fire: '병', earth: '무', metal: '경', water: '임',
   };
@@ -215,7 +274,6 @@ export default function NamingReportPage({ params }: { params: { id: string } })
   const reportLackEl = (elSorted[elSorted.length - 1] ?? 'earth') as Element;
   const dayStem = ELEMENT_TO_YANG_STEM[reportMainEl] ?? '갑';
   const syntheticSaju = calculateSaju('2000-01-01');
-  // 일주 오행을 report의 주 오행으로 오버라이드한 합성 SajuResult
   const syntheticForReport = {
     ...syntheticSaju,
     dayPillar: {
@@ -360,28 +418,184 @@ export default function NamingReportPage({ params }: { params: { id: string } })
           </button>
         </div>
 
-        {/* 1. 종합 점수 */}
+        {/* Section 1: 전문가 종합 점수 */}
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="bg-white rounded-2xl p-6 shadow-md">
-          <h2 className="font-bold text-gray-800 mb-4 flex items-center gap-2"><Stars className="w-5 h-5 text-gold-400" />종합 점수</h2>
-          <div className="flex justify-around">
-            <ScoreCircle score={report.sajuFitScore} label="사주 적합도" />
-            <ScoreCircle score={report.parentCompatibility.mom} label="엄마 궁합" />
-            <ScoreCircle score={report.parentCompatibility.dad} label="아빠 궁합" />
+          <h2 className="font-bold text-gray-800 mb-5 flex items-center gap-2">
+            <Stars className="w-5 h-5 text-gold-400" />전문가 종합 점수
+          </h2>
+
+          {/* 메인 점수 원 */}
+          <div className="flex justify-center mb-6">
+            <ScoreCircle score={mainScore} label="전문가 종합" size="lg" />
+          </div>
+
+          {/* 5개 가중치 세부 항목 */}
+          <div className="space-y-3 mb-6">
+            {[
+              { label: '자원오행', weight: '40%', score: report.jawonOheng?.score ?? report.sajuFitScore, element: 'wood' },
+              { label: '발음오행', weight: '25%', score: report.pronunciationOheng?.score ?? report.pronunciationAnalysis.harmony, element: 'fire' },
+              { label: '수리오행', weight: '20%', score: report.strokeAnalysis.luckScore, element: 'earth' },
+              { label: '음양배합', weight: '10%', score: report.eumyangAnalysis?.score ?? 80, element: 'metal' },
+              { label: '불용한자', weight: '5%', score: report.bulyongCheck?.score ?? 100, element: 'water' },
+            ].map((item) => (
+              <div key={item.label} className="flex items-center gap-3">
+                <div className="w-20 shrink-0">
+                  <span className="text-xs font-semibold text-gray-700">{item.label}</span>
+                  <span className="text-xs text-gray-400 ml-1">({item.weight})</span>
+                </div>
+                <div className="flex-1 h-2.5 bg-gray-100 rounded-full overflow-hidden">
+                  <motion.div
+                    initial={{ width: 0 }}
+                    animate={{ width: `${item.score}%` }}
+                    transition={{ duration: 0.9, ease: 'easeOut' }}
+                    className="h-full rounded-full"
+                    style={{ backgroundColor: ELEMENT_BAR_COLOR[item.element] ?? '#6C5CE7' }}
+                  />
+                </div>
+                <span className="text-xs font-bold text-gray-700 w-8 text-right shrink-0">{item.score}</span>
+              </div>
+            ))}
+          </div>
+
+          {/* 보조 점수: 사주 적합도 + 부모 궁합 */}
+          <div className="border-t border-gray-100 pt-4">
+            <p className="text-xs text-gray-400 mb-3 text-center">사주 궁합 보조 지표</p>
+            <div className="flex justify-around">
+              <ScoreCircle score={report.sajuFitScore} label="사주 적합도" />
+              <ScoreCircle score={report.parentCompatibility.mom} label="엄마 궁합" />
+              <ScoreCircle score={report.parentCompatibility.dad} label="아빠 궁합" />
+            </div>
           </div>
         </motion.div>
 
-        {/* 2. 아이에게 보내는 축복 메시지 */}
+        {/* Section 2: 자원오행 분석 */}
+        {report.jawonOheng && (
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }} className="bg-white rounded-2xl p-6 shadow-md">
+            <h2 className="font-bold text-gray-800 mb-1">🌿 자원오행 분석</h2>
+            <p className="text-xs text-gray-400 mb-4">한자 글자의 의미와 형태에 담긴 오행 기운 (가중치 40%)</p>
+
+            {/* 각 글자별 오행 배지 */}
+            <div className="flex gap-3 mb-4 flex-wrap">
+              {report.meaningBreakdown.map((item, i) => {
+                const el = report.jawonOheng!.elements[i];
+                return (
+                  <div key={i} className="flex-1 min-w-24 bg-gray-50 rounded-2xl p-3 text-center">
+                    <div className="text-2xl font-bold text-primary-600 mb-1">{item.hanja}</div>
+                    <div className="text-sm text-gray-700 mb-2">{item.char}</div>
+                    {el ? (
+                      <ElementBadge element={el} />
+                    ) : (
+                      <span className="text-xs text-gray-400">미확인</span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* 매칭 통계 */}
+            <div className="grid grid-cols-2 gap-3 mb-4">
+              <div className="bg-green-50 rounded-xl p-3 text-center">
+                <div className="text-lg font-bold text-green-600">{report.jawonOheng.matchCount}</div>
+                <div className="text-xs text-gray-500">용신 일치 글자</div>
+              </div>
+              <div className="bg-blue-50 rounded-xl p-3 text-center">
+                <div className="text-lg font-bold text-blue-600">{report.jawonOheng.generateCount}</div>
+                <div className="text-xs text-gray-500">상생 관계 글자</div>
+              </div>
+            </div>
+
+            {/* 불용한자 경고 */}
+            {report.bulyongCheck && !report.bulyongCheck.passed && report.bulyongCheck.issues.length > 0 && (
+              <div className="bg-red-50 border border-red-200 rounded-xl p-3">
+                <div className="text-xs font-bold text-red-600 mb-2">⚠️ 불용한자 주의</div>
+                {report.bulyongCheck.issues.map((issue, i) => (
+                  <div key={i} className="text-xs text-red-700 mb-1">
+                    <span className="font-semibold">{issue.hanja}</span> ({issue.reading}): {issue.reason}
+                  </div>
+                ))}
+              </div>
+            )}
+            {report.bulyongCheck?.passed && (
+              <div className="bg-green-50 border border-green-200 rounded-xl p-3 flex items-center gap-2">
+                <span className="text-green-600 text-sm">✓</span>
+                <span className="text-xs text-green-700 font-medium">불용한자 없음 — 모든 글자가 좋은 의미를 지닙니다</span>
+              </div>
+            )}
+          </motion.div>
+        )}
+
+        {/* Section 3: 발음오행 분석 */}
+        {report.pronunciationOheng && (
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="bg-white rounded-2xl p-6 shadow-md">
+            <h2 className="font-bold text-gray-800 mb-1">🔊 발음오행 분석</h2>
+            <p className="text-xs text-gray-400 mb-4">초성(첫소리)의 오행과 음절 간 상생·상극 관계 (가중치 25%)</p>
+
+            {/* 초성 → 오행 시각화 */}
+            <div className="flex items-center justify-center gap-2 mb-4 flex-wrap">
+              {report.pronunciationOheng.elements.map((el, i) => {
+                const consonant = report.pronunciationAnalysis.initialConsonants[i];
+                const elKey = el === '木' ? 'wood' : el === '火' ? 'fire' : el === '土' ? 'earth' : el === '金' ? 'metal' : 'water';
+                return (
+                  <div key={i} className="flex flex-col items-center gap-1">
+                    <span className="text-lg font-bold text-gray-700">{consonant ?? '·'}</span>
+                    <span className="text-xs text-gray-400">↓</span>
+                    <ElementBadge element={elKey} />
+                    {i < report.pronunciationOheng!.elements.length - 1 && (
+                      <span className="text-xs text-gray-300 mt-1">→</span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* 상생/상극 관계 */}
+            {report.pronunciationOheng.relations.length > 0 && (
+              <div className="flex flex-wrap gap-2 mb-4">
+                {report.pronunciationOheng.relations.map((rel, i) => (
+                  <span key={i} className={`px-3 py-1 rounded-full text-xs font-semibold ${rel.includes('상생') ? 'bg-green-100 text-green-700' : rel.includes('상극') ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-600'}`}>
+                    {rel}
+                  </span>
+                ))}
+              </div>
+            )}
+
+            {/* 점수 + 코멘트 */}
+            <div className="flex items-center gap-3 bg-primary-50 rounded-xl p-3">
+              <div className="text-2xl font-black text-primary-600">{report.pronunciationOheng.score}</div>
+              <p className="text-xs text-primary-800 leading-relaxed flex-1">{report.pronunciationOheng.description}</p>
+            </div>
+          </motion.div>
+        )}
+
+        {/* Section 4: 축복 메시지 */}
         <motion.div
-          initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08 }}
+          initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}
           className="rounded-2xl p-6 border border-rose-100 bg-gradient-to-br from-rose-50 to-primary-50"
         >
           <h2 className="font-bold text-gray-800 mb-3">✨ 아이에게 보내는 축복 메시지</h2>
           <p className="text-gray-700 text-sm leading-relaxed">{blessingMessage}</p>
         </motion.div>
 
-        {/* 3. 사주 팔자 요약 */}
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }} className="bg-white rounded-2xl p-6 shadow-md">
-          <h2 className="font-bold text-gray-800 mb-4">🔮 사주 팔자 요약</h2>
+        {/* Section 5: 이름 한자 풀이 */}
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="bg-white rounded-2xl p-6 shadow-md">
+          <h2 className="font-bold text-gray-800 mb-4">📖 이름 한자 풀이</h2>
+          <div className="space-y-3">
+            {report.meaningBreakdown.map((item, i) => (
+              <div key={i} className="flex items-start gap-4 p-3 bg-gray-50 rounded-xl">
+                <div className="text-center min-w-12">
+                  <div className="text-2xl font-bold text-primary-600">{item.hanja}</div>
+                  <div className="text-base text-gray-700">{item.char}</div>
+                </div>
+                <p className="text-sm text-gray-600 pt-1">{item.meaning}</p>
+              </div>
+            ))}
+          </div>
+        </motion.div>
+
+        {/* Section 6: 수리오행 (5격 분석) */}
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }} className="bg-white rounded-2xl p-6 shadow-md">
+          <h2 className="font-bold text-gray-800 mb-1">🔢 수리오행 (5격 분석)</h2>
+          <p className="text-xs text-gray-400 mb-4">획수로 보는 다섯 가지 운격 (가중치 20%)</p>
           <div className="grid grid-cols-3 gap-3 mb-3">
             {[
               { label: '천격', value: report.strokeAnalysis.heavenGrade },
@@ -402,25 +616,43 @@ export default function NamingReportPage({ params }: { params: { id: string } })
           </div>
         </motion.div>
 
-        {/* 4. 이름 한자 풀이 */}
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="bg-white rounded-2xl p-6 shadow-md">
-          <h2 className="font-bold text-gray-800 mb-4">📖 이름 한자 풀이</h2>
-          <div className="space-y-3">
-            {report.meaningBreakdown.map((item, i) => (
-              <div key={i} className="flex items-start gap-4 p-3 bg-gray-50 rounded-xl">
-                <div className="text-center min-w-12">
-                  <div className="text-2xl font-bold text-primary-600">{item.hanja}</div>
-                  <div className="text-base text-gray-700">{item.char}</div>
+        {/* Section 7: 음양배합 분석 */}
+        {report.eumyangAnalysis && (
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="bg-white rounded-2xl p-6 shadow-md">
+            <h2 className="font-bold text-gray-800 mb-1">☯️ 음양배합 분석</h2>
+            <p className="text-xs text-gray-400 mb-4">획수의 홀짝으로 보는 음양 균형 (가중치 10%)</p>
+
+            {/* 획수 패턴 시각화 */}
+            <div className="flex items-center gap-2 mb-4">
+              {report.eumyangAnalysis.pattern.map((p, i) => (
+                <div key={i} className={`flex-1 py-3 rounded-xl text-center font-bold text-sm ${p === '양' ? 'bg-orange-100 text-orange-700' : 'bg-blue-100 text-blue-700'}`}>
+                  {p}
+                  <div className="text-xs font-normal mt-0.5 opacity-70">{p === '양' ? '홀수' : '짝수'}</div>
                 </div>
-                <p className="text-sm text-gray-600 pt-1">{item.meaning}</p>
+              ))}
+            </div>
+
+            {/* 패턴 분류 + 점수 */}
+            <div className="flex items-center gap-3 bg-gray-50 rounded-xl p-3 mb-3">
+              <div className={`px-3 py-1.5 rounded-full text-sm font-bold ${
+                report.eumyangAnalysis.luck === '길' ? 'bg-green-100 text-green-700' :
+                report.eumyangAnalysis.luck === '흉' ? 'bg-red-100 text-red-700' :
+                'bg-yellow-100 text-yellow-700'
+              }`}>
+                {report.eumyangAnalysis.luck}
               </div>
-            ))}
-          </div>
-        </motion.div>
+              <div className="flex-1">
+                <div className="text-xs text-gray-500 mb-0.5">배합 패턴: <span className="font-semibold text-gray-700">{report.eumyangAnalysis.patternString}</span></div>
+                <div className="text-xs text-gray-500">점수: <span className="font-bold text-primary-600">{report.eumyangAnalysis.score}점</span></div>
+              </div>
+            </div>
+            <p className="text-xs text-gray-600 leading-relaxed bg-primary-50 rounded-xl p-3">{report.eumyangAnalysis.description}</p>
+          </motion.div>
+        )}
 
         {/* 유행지수 */}
         {popularity && (
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.22 }}
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.32 }}
             className="bg-white rounded-2xl p-5 shadow-md"
           >
             <h2 className="font-bold text-gray-800 mb-3">📊 이름 유행지수</h2>
@@ -475,8 +707,8 @@ export default function NamingReportPage({ params }: { params: { id: string } })
           </motion.div>
         )}
 
-        {/* 5. 오행 분석 차트 */}
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.22 }} className="bg-white rounded-2xl p-6 shadow-md">
+        {/* 오행 레이더 */}
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.34 }} className="bg-white rounded-2xl p-6 shadow-md">
           <h2 className="font-bold text-gray-800 mb-4">🌐 오행 레이더 분석</h2>
           <div className="flex justify-center mb-4">
             <OhengRadarChart elements={ohengElements} size={240} />
@@ -487,12 +719,10 @@ export default function NamingReportPage({ params }: { params: { id: string } })
           </div>
         </motion.div>
 
-        {/* 6. 오행 인생 추천 */}
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }} className="bg-white rounded-2xl p-6 shadow-md">
+        {/* 오행 인생 추천 */}
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.36 }} className="bg-white rounded-2xl p-6 shadow-md">
           <h2 className="font-bold text-gray-800 mb-4">🎨 오행 인생 추천</h2>
           <div className="grid grid-cols-1 gap-3">
-
-            {/* 행운의 색깔 */}
             <div className="bg-rose-50 rounded-2xl p-4">
               <div className="flex items-center gap-2 mb-1">
                 <span className="text-lg">🎨</span>
@@ -505,8 +735,6 @@ export default function NamingReportPage({ params }: { params: { id: string } })
                 ))}
               </div>
             </div>
-
-            {/* 자연과의 친구 */}
             <div className="bg-green-50 rounded-2xl p-4">
               <div className="flex items-center gap-2 mb-1">
                 <span className="text-lg">🌿</span>
@@ -515,8 +743,6 @@ export default function NamingReportPage({ params }: { params: { id: string } })
               <p className="text-sm font-semibold text-green-700 mb-1">{elemRec.nature}</p>
               <p className="text-xs text-gray-500">{elemRec.natureDesc}</p>
             </div>
-
-            {/* 여행지 추천 */}
             <div className="bg-blue-50 rounded-2xl p-4">
               <div className="flex items-center gap-2 mb-1">
                 <span className="text-lg">✈️</span>
@@ -529,8 +755,6 @@ export default function NamingReportPage({ params }: { params: { id: string } })
                 ))}
               </div>
             </div>
-
-            {/* 행운의 계절 */}
             <div className="bg-amber-50 rounded-2xl p-4">
               <div className="flex items-center gap-2 mb-1">
                 <span className="text-lg">🍂</span>
@@ -539,12 +763,11 @@ export default function NamingReportPage({ params }: { params: { id: string } })
               <p className="text-sm font-semibold text-amber-700 mb-1">{elemRec.season}</p>
               <p className="text-xs text-gray-500">{elemRec.seasonDesc}</p>
             </div>
-
           </div>
         </motion.div>
 
-        {/* 7. 인생 이정표 */}
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="bg-white rounded-2xl p-6 shadow-md">
+        {/* 인생 이정표 */}
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.38 }} className="bg-white rounded-2xl p-6 shadow-md">
           <h2 className="font-bold text-gray-800 mb-4">🌟 인생 이정표</h2>
           <div className="space-y-3">
             {milestones.map((m, i) => (
@@ -560,18 +783,18 @@ export default function NamingReportPage({ params }: { params: { id: string } })
           </div>
         </motion.div>
 
-        {/* 8. 종합 작명 소견 */}
+        {/* 종합 작명 소견 */}
         <motion.div
-          initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }}
+          initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}
           className="bg-gradient-to-br from-primary-50 to-secondary-50 rounded-2xl p-6 border border-primary-100"
         >
           <h2 className="font-bold text-gray-800 mb-3">💫 종합 작명 소견</h2>
           <p className="text-gray-700 text-sm leading-relaxed">{report.overallComment}</p>
         </motion.div>
 
-        {/* 9. review 경로: 점수 낮을 때 대안 이름 추천 CTA */}
+        {/* review 경로: 점수 낮을 때 대안 이름 추천 CTA */}
         {fromReview && report.sajuFitScore < 70 && (
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.38 }}
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.42 }}
             className="bg-gradient-to-br from-amber-50 to-orange-50 rounded-2xl p-6 border border-amber-200"
           >
             <div className="text-3xl mb-2">💡</div>
@@ -589,9 +812,9 @@ export default function NamingReportPage({ params }: { params: { id: string } })
           </motion.div>
         )}
 
-        {/* 10. review 경로: 사주 상세 리포트 보기 CTA */}
+        {/* review 경로: 사주 상세 리포트 보기 CTA */}
         {fromReview && (
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.42 }}
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.44 }}
             className="bg-gradient-to-br from-primary-600 to-primary-400 rounded-2xl p-6 text-center"
           >
             <div className="text-3xl mb-2">📖</div>
@@ -609,8 +832,8 @@ export default function NamingReportPage({ params }: { params: { id: string } })
           </motion.div>
         )}
 
-        {/* 11. 직업 추천 */}
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.38 }} className="bg-white rounded-2xl p-6 shadow-md">
+        {/* 직업 추천 */}
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.46 }} className="bg-white rounded-2xl p-6 shadow-md">
           <h2 className="font-bold text-gray-800 mb-1">💼 우리 아이에게 어울리는 직업</h2>
           <p className="text-xs text-gray-400 mb-4">십성(十星) · 오행 조합 · 일간 다차원 분석 기반 추천</p>
           <div className="space-y-3">
@@ -645,8 +868,8 @@ export default function NamingReportPage({ params }: { params: { id: string } })
           </div>
         </motion.div>
 
-        {/* 12. 카드 뽑기 CTA */}
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}
+        {/* 카드 뽑기 CTA */}
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.48 }}
           className="bg-gradient-to-br from-purple-900 to-indigo-900 rounded-2xl p-6 text-center"
         >
           <div className="text-3xl mb-2">🃏</div>
