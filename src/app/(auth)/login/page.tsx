@@ -13,7 +13,7 @@ export default function LoginPage() {
   const [error, setError] = useState('');
   const router = useRouter();
   const searchParams = useSearchParams();
-  const redirectTo = searchParams.get('redirect') || '/naming';
+  const redirectTo = searchParams.get('redirect') || '/';
 
   const handleOAuth = async (provider: 'google' | 'kakao') => {
     setIsLoading(true);
