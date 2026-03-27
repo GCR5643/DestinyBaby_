@@ -4,6 +4,8 @@ import { getHanjaStrokes } from '@/lib/naming/hanja-strokes';
 import { analyzeEumyang } from '@/lib/naming/eumyang';
 import { analyzePronunciationOheng } from '@/lib/naming/pronunciation-oheng';
 import { calculateFiveGyeok } from '@/lib/naming/five-gyeok';
+import { analyzeJawonOheng } from '@/lib/naming/jawon-oheng';
+import { validateBulyong } from '@/lib/naming/bulyong-hanja';
 
 // 오행 한국어 이름
 const ELEMENT_KO: Record<string, string> = {
@@ -110,6 +112,26 @@ export async function analyzeName(
   // 발음 오행 분석: name 파라미터는 한글 전체 이름(성+이름)
   const pronOhengResult = analyzePronunciationOheng(surnameHangul, nameHangul);
 
+  // 자원오행 분석: 한자 의미 기반 사주보완 적합도 (가중치 40%)
+  const nameHanjaOnly = hanjaChars.slice(1); // 성씨 제외 이름 한자
+  const jawonResult = analyzeJawonOheng(nameHanjaOnly, sajuResult.lackingElement);
+
+  // 불용한자 검사
+  const bulyongResult = validateBulyong(hanjaChars);
+
+  // ──── 전문가 기준 종합 점수 (가중치 재조정) ────
+  // 출처: 복수 전문 작명사 공통 기준
+  // 자원오행(40%) > 발음오행(25%) > 수리오행(20%) > 음양(10%) > 불용한자(5%)
+  const expertWeightedScore = bulyongResult.passed
+    ? Math.round(
+        jawonResult.score * 0.40 +
+        pronOhengResult.score * 0.25 +
+        strokeAnalysis.luckScore * 0.20 +
+        eumyangResult.score * 0.10 +
+        bulyongResult.score * 0.05
+      )
+    : 0; // 불용한자 hard 위반 시 0점
+
   // 수리격 정보 (5격 기준 라벨)
   const gradeInfo = [
     { label: '천격(天格)', value: strokeAnalysis.heavenGrade },
@@ -215,6 +237,9 @@ JSON으로만 답변:
         `"${name}"은 ${lackingKo} 기운을 보완하여 사주의 균형을 잘 맞추어주는 아름다운 이름입니다. 이 이름과 함께 아이가 건강하고 행복하게 자라나길 바랍니다.`,
       eumyangAnalysis: eumyangResult,
       pronunciationOheng: pronOhengResult,
+      jawonOheng: jawonResult,
+      bulyongCheck: bulyongResult,
+      expertScore: expertWeightedScore,
     };
   } catch {
     return {
@@ -241,6 +266,9 @@ JSON으로만 답변:
       overallComment: `"${name}"은 사주의 ${lackingKo} 기운을 자연스럽게 보완해주는 아름다운 이름입니다. 이 이름과 함께 아이가 밝고 행복한 삶을 펼쳐나가길 진심으로 응원합니다.`,
       eumyangAnalysis: eumyangResult,
       pronunciationOheng: pronOhengResult,
+      jawonOheng: jawonResult,
+      bulyongCheck: bulyongResult,
+      expertScore: expertWeightedScore,
     };
   }
 }

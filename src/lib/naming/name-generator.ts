@@ -1,6 +1,16 @@
 import type { NamingInput, SuggestedName, Element, TrendLevel } from '@/types';
 import { callLLM } from '@/lib/llm/llm-client';
 import { getHanjaEntry, getHanjaStrokes } from '@/lib/naming/hanja-strokes';
+import { recommendJawonHanja } from '@/lib/naming/jawon-oheng';
+import { isBulyongHard } from '@/lib/naming/bulyong-hanja';
+
+// ── 자원오행 추천 한자를 LLM 프롬프트용 문자열로 변환 ──
+function getJawonRecommendation(element: Element, gender?: string): string {
+  const g = gender === 'male' ? 'M' : gender === 'female' ? 'F' : undefined;
+  const recs = recommendJawonHanja(element, g);
+  const chars = recs.primary.slice(0, 10).map(h => `${h.hanja}(${h.reading})`).join(', ');
+  return chars || '(해당 오행 한자 DB 참조)';
+}
 
 // ── 트렌디함 레벨별 LLM 프롬프트 지시문 ──────────────────────────────────────
 const TREND_INSTRUCTIONS: Record<TrendLevel, { label: string; directive: string; examples: Record<'male' | 'female' | 'unknown', string> }> = {
@@ -140,6 +150,12 @@ function validateAndCorrectNames(
     if (notInDb.length > 0) {
       console.warn(`[naming] DB에 없는 한자 포함(유니코드 추정값 사용): ${notInDb.join(', ')} (이름: ${n.name})`);
     }
+    // 4) 불용한자 필터 — hard 불용한자가 포함된 이름 제외
+    const hasBulyong = chars.some(c => isBulyongHard(c));
+    if (hasBulyong) {
+      console.warn(`[naming] 불용한자 포함 이름 필터링: "${n.name}" (${n.hanja})`);
+      continue;
+    }
     // DB 기준 실제 획수 합계 (향후 수리격 계산에 사용)
     const actualStrokes = chars.reduce((sum, char) => sum + getHanjaStrokes(char), 0);
     if (process.env.NODE_ENV === 'development') {
@@ -247,11 +263,14 @@ ${input.preferences?.avoidChars?.length ? `- 피할 글자: ${input.preferences.
 2. 그 한글 음(音)에 맞는 한자를 배정합니다 — 사주 보완 오행과 의미를 고려
 3. 성씨와 결합하여 전체 이름을 소리내어 읽어봅니다 — 어색하면 교체
 
-## 한자 선택 기준
-- 보완 오행(${ELEMENT_KO[complementElement]}) 계열 참고 한자: ${targetChars.slice(0, 8).join(', ')} (참고용이며 이에 국한하지 않아도 됨)
+## 한자 선택 기준 (자원오행 우선)
+- ★ 자원오행(한자 의미 기반 오행)이 용신(${ELEMENT_KO[baseSaju.lackingElement]})에 해당하는 한자를 최우선 선택
+- 용신 직접 보완 한자 (1순위): ${getJawonRecommendation(baseSaju.lackingElement, input.gender)}
+- 용신을 생하는 한자 (2순위): ${getJawonRecommendation(complementElement, input.gender)}
 - 한국 작명에서 널리 쓰이는 한자를 우선 선택 (예: 俊, 賢, 恩, 瑞, 秀, 智, 善, 美, 英, 浩, 泰, 民, 宇 등)
 - 음양 밸런스: 이름 전체가 음양이 조화를 이루도록 선택
 - 수리격: 원격(元格)·형격(亨格)·이격(利格)·정격(貞格) 중 길격(吉格) 위주
+- ⚠️ 불용한자 절대 금지: 死, 鬼, 病, 凶, 殺, 亡, 滅, 棄, 孤, 寡, 奴, 罪, 惡, 毒 등 부정적 의미 한자
 
 ## 자가 검증 체크리스트 (생성 후 반드시 확인)
 - [ ] 이름이 한국 유치원/학교에서 자연스럽게 불릴 수 있는가?

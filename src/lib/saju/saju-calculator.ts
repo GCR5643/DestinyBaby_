@@ -85,9 +85,29 @@ export function calculateSaju(birthDate: string, birthTime?: string): SajuResult
 
   const sortedElements = Object.entries(elementCounts).sort((a, b) => b[1] - a[1]);
   const mainElement = sortedElements[0][0] as Element;
-  const lackingElement = sortedElements[4][0] as Element;
+  const rawLackingElement = sortedElements[4][0] as Element;
   const strongElements = sortedElements.slice(0, 2).map(e => e[0] as Element);
   const weakElements = sortedElements.slice(3).map(e => e[0] as Element);
+
+  // ──── 용신(用神) 고도화: 조후(調候) + 억부(抑扶) 분석 ────
+  // 출처: 전문 작명사 공통 기준 (sajuforum.com, agiirum.com)
+  // 조후: 계절(월지)에 따른 온도/습도 균형 → 필요 오행 결정
+  // 억부: 일간 강약 판단 → 강하면 설기(洩氣)/극(剋), 약하면 생(生)/비(比)
+  const dayMasterElement = dayPillar.element;
+  const monthBranchElement = EARTHLY_BRANCHES_ELEMENT[monthBranchIndex];
+
+  // 조후 분석: 월지(계절)에 따른 보완 오행
+  const johuElement = calculateJohu(dayMasterElement, monthBranchIndex);
+
+  // 억부 분석: 일간 강약 판단
+  const dayMasterStrength = calculateDayMasterStrength(
+    dayMasterElement, elementCounts, monthBranchElement
+  );
+
+  // 용신 결정: 조후 우선, 억부 보조
+  const lackingElement = determineYongshin(
+    rawLackingElement, johuElement, dayMasterElement, dayMasterStrength, elementCounts
+  );
 
   const partialResult: SajuResult = {
     yearPillar,
@@ -108,6 +128,108 @@ export function calculateSaju(birthDate: string, birthTime?: string): SajuResult
     ...partialResult,
     sipsung: calculateSipsung(partialResult),
   };
+}
+
+/**
+ * 조후(調候) 분석: 월지(계절)별 일간에 필요한 오행 판단
+ * 출처: 삼명통회(三命通會), 궁통보감(窮通寶鑑) 원리
+ *
+ * 여름(사/오/미) → 더위를 식히는 水/金 필요
+ * 겨울(해/자/축) → 추위를 데우는 火/木 필요
+ * 봄/가을 → 일간 강약 기반 억부 분석 우선
+ */
+function calculateJohu(dayMaster: Element, monthBranchIdx: number): Element | null {
+  // 월지 → 계절 매핑 (인묘진=봄, 사오미=여름, 신유술=가을, 해자축=겨울)
+  const season: 'spring' | 'summer' | 'autumn' | 'winter' =
+    [2, 3, 4].includes(monthBranchIdx) ? 'spring' :
+    [5, 6, 7].includes(monthBranchIdx) ? 'summer' :
+    [8, 9, 10].includes(monthBranchIdx) ? 'autumn' : 'winter';
+
+  // 조후 테이블: [일간 오행][계절] → 필요 오행
+  const JOHU_TABLE: Record<Element, Partial<Record<typeof season, Element>>> = {
+    wood: { summer: 'water', winter: 'fire' },
+    fire: { summer: 'water', winter: 'wood', autumn: 'wood' },
+    earth: { summer: 'water', winter: 'fire', spring: 'fire' },
+    metal: { summer: 'water', winter: 'fire', spring: 'earth' },
+    water: { summer: 'metal', winter: 'fire', spring: 'wood' },
+  };
+
+  return JOHU_TABLE[dayMaster]?.[season] ?? null;
+}
+
+/**
+ * 억부(抑扶) 분석: 일간 강약 판단
+ * 일간과 같은 오행(비겁) + 일간을 생하는 오행(인성)이 많으면 신강
+ * 일간을 극/설하는 오행이 많으면 신약
+ * @returns 'strong' | 'weak' | 'balanced'
+ */
+function calculateDayMasterStrength(
+  dayMaster: Element,
+  counts: Record<Element, number>,
+  monthBranchElement: Element,
+): 'strong' | 'weak' | 'balanced' {
+  const GENERATES: Record<Element, Element> = {
+    water: 'wood', wood: 'fire', fire: 'earth', earth: 'metal', metal: 'water',
+  };
+  // 일간을 생하는 오행 (인성)
+  const generatesMe = Object.entries(GENERATES).find(([, v]) => v === dayMaster)?.[0] as Element;
+
+  // 신강 점수: 비겁(같은 오행) + 인성(나를 생하는 오행)
+  const supportScore = counts[dayMaster] + (generatesMe ? counts[generatesMe] : 0);
+  // 월지가 일간을 돕는가 (득령)
+  const deukryeong = monthBranchElement === dayMaster || monthBranchElement === generatesMe;
+
+  const totalElements = Object.values(counts).reduce((a, b) => a + b, 0);
+  const supportRatio = supportScore / totalElements;
+
+  if (supportRatio > 0.5 || (supportRatio >= 0.4 && deukryeong)) return 'strong';
+  if (supportRatio < 0.3 || (supportRatio <= 0.35 && !deukryeong)) return 'weak';
+  return 'balanced';
+}
+
+/**
+ * 용신(用神) 최종 결정
+ * 우선순위: 조후 > 억부 > 단순 부족
+ */
+function determineYongshin(
+  rawLacking: Element,
+  johu: Element | null,
+  dayMaster: Element,
+  strength: 'strong' | 'weak' | 'balanced',
+  counts: Record<Element, number>,
+): Element {
+  const GENERATES: Record<Element, Element> = {
+    water: 'wood', wood: 'fire', fire: 'earth', earth: 'metal', metal: 'water',
+  };
+  const CONTROLS: Record<Element, Element> = {
+    wood: 'earth', earth: 'water', water: 'fire', fire: 'metal', metal: 'wood',
+  };
+
+  // 1) 조후가 있고, 해당 오행이 실제로 부족하면 조후 우선
+  if (johu && counts[johu] <= 1) {
+    return johu;
+  }
+
+  // 2) 억부 기반 판단
+  if (strength === 'strong') {
+    // 신강: 설기(나를 설하는 오행=식상) 또는 극(나를 극하는 오행=관성)
+    const exhaust = GENERATES[dayMaster]; // 내가 생하는 오행 = 설기
+    const control = Object.entries(CONTROLS).find(([, v]) => v === dayMaster)?.[0] as Element | undefined;
+    // 설기가 부족하면 설기, 아니면 극
+    if (counts[exhaust] <= 1) return exhaust;
+    if (control && counts[control] <= 1) return control;
+  } else if (strength === 'weak') {
+    // 신약: 인성(나를 생하는 오행) 또는 비겁(같은 오행)
+    const generatesMe = Object.entries(GENERATES).find(([, v]) => v === dayMaster)?.[0] as Element | undefined;
+    if (generatesMe && counts[generatesMe] <= 1) return generatesMe;
+    if (counts[dayMaster] <= 1) return dayMaster;
+  }
+
+  // 3) 조후가 있으면 조후 반환
+  if (johu) return johu;
+
+  // 4) 기본: 단순 부족 오행
+  return rawLacking;
 }
 
 export function getElementRelationship(element1: Element, element2: Element): 'generates' | 'controls' | 'neutral' {

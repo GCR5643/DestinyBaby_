@@ -186,6 +186,9 @@ export interface NamingReport {
   englishNames?: EnglishNameSuggestion[];
   eumyangAnalysis?: EumyangAnalysis;
   pronunciationOheng?: PronunciationOhengAnalysis;
+  jawonOheng?: { elements: (Element | null)[]; matchCount: number; generateCount: number; score: number };
+  bulyongCheck?: { passed: boolean; issues: { hanja: string; reading: string; reason: string }[]; score: number };
+  expertScore?: number; // 전문가 기준 종합 가중치 점수 (0~100)
 }
 
 export interface EnglishNameSuggestion {
