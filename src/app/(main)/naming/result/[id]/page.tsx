@@ -108,11 +108,9 @@ interface NameCardProps {
   lackingElement?: string;
   onAddCandidate: (name: SuggestedName) => void;
   onVoice: (name: string) => void;
-  onFamous: (givenName: string) => void;
-  isFamousActive: boolean;
 }
 
-function NameCard({ name, index, isCandidate, popularity, surname, lackingElement, onAddCandidate, onVoice, onFamous, isFamousActive }: NameCardProps) {
+function NameCard({ name, index, isCandidate, popularity, surname, lackingElement, onAddCandidate, onVoice }: NameCardProps) {
   const fullName = surname ? `${surname}${name.name}` : name.name;
 
   // 한자 글자별 의미 설명 생성
@@ -191,17 +189,6 @@ function NameCard({ name, index, isCandidate, popularity, surname, lackingElemen
             {isCandidate ? '✅ 후보됨' : '⭐ 후보 추가'}
           </button>
         </div>
-        <button
-          onClick={() => onFamous(name.name)}
-          className={cn(
-            'w-full mt-2 flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-medium transition-colors',
-            isFamousActive
-              ? 'bg-amber-50 text-amber-600 border border-amber-200'
-              : 'text-gray-400 hover:bg-gray-50 hover:text-gray-600'
-          )}
-        >
-          🌟 이 이름의 유명인 보기
-        </button>
       </div>
     </motion.div>
   );
@@ -229,6 +216,7 @@ export default function NamingResultPage({ params }: { params: { id: string } })
   const [isRegenerating, setIsRegenerating] = useState(false);
   const [regenCount, setRegenCount] = useState(0);
   const [famousNameQuery, setFamousNameQuery] = useState<string | null>(null);
+  const [showCelebration, setShowCelebration] = useState(false);
   const [surname, setSurname] = useState('');
   const [lackingElement, setLackingElement] = useState<string | undefined>();
 
@@ -407,6 +395,7 @@ export default function NamingResultPage({ params }: { params: { id: string } })
         return prev;
       }
       if (prev.some(c => c.name === name.name)) return prev;
+      showToast('⭐ 저장한 이름 후보는 내 프로필에서 확인할 수 있어요');
       return [...prev, name];
     });
   }, []);
@@ -550,8 +539,6 @@ export default function NamingResultPage({ params }: { params: { id: string } })
                 lackingElement={lackingElement}
                 onAddCandidate={handleAddCandidate}
                 onVoice={handleVoice}
-                onFamous={(givenName) => setFamousNameQuery(prev => prev === givenName ? null : givenName)}
-                isFamousActive={famousNameQuery === name.name}
               />
             ))}
           </AnimatePresence>
@@ -690,7 +677,7 @@ export default function NamingResultPage({ params }: { params: { id: string } })
                   key={c.name}
                   className="flex items-center gap-1 px-3 py-1.5 bg-primary-50 text-primary-700 rounded-full text-sm font-medium"
                 >
-                  {c.name}
+                  {surname}{c.name}
                   <button
                     onClick={() => handleRemoveCandidate(c.name)}
                     className="ml-0.5 hover:text-primary-900 transition-colors"
@@ -763,7 +750,12 @@ export default function NamingResultPage({ params }: { params: { id: string } })
                     onClick={() => {
                       setFinalName(c);
                       setShowFinalModal(false);
-                      router.push(`/naming/report/${params.id}?name=${encodeURIComponent(c.name)}&hanja=${encodeURIComponent(c.hanja)}&final=true`);
+                      // 축하 confetti
+                      setShowCelebration(true);
+                      setTimeout(() => {
+                        setShowCelebration(false);
+                        router.push(`/naming/report/${params.id}?name=${encodeURIComponent(c.name)}&hanja=${encodeURIComponent(c.hanja)}&surname=${encodeURIComponent(surname)}&final=true`);
+                      }, 2500);
                     }}
                     className={cn(
                       'w-full flex items-center gap-4 p-4 rounded-2xl border-2 transition-all text-left',
@@ -772,7 +764,7 @@ export default function NamingResultPage({ params }: { params: { id: string } })
                         : 'border-gray-100 hover:border-primary-200'
                     )}
                   >
-                    <div className="text-3xl font-black text-primary-700">{c.name}</div>
+                    <div className="text-3xl font-black text-primary-700">{surname}{c.name}</div>
                     <div className="flex-1">
                       <div className="text-gray-400 text-sm">{c.hanja}</div>
                       <div className="text-xs text-gray-500 mt-0.5">{c.reasonShort}</div>
@@ -783,6 +775,53 @@ export default function NamingResultPage({ params }: { params: { id: string } })
               </div>
             </motion.div>
           </>
+        )}
+      </AnimatePresence>
+
+      {/* Celebration overlay */}
+      <AnimatePresence>
+        {showCelebration && finalName && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60"
+          >
+            {/* confetti particles */}
+            <div className="absolute inset-0 pointer-events-none overflow-hidden">
+              {Array.from({ length: 40 }, (_, i) => (
+                <motion.div
+                  key={i}
+                  className="absolute w-2.5 h-2.5 rounded-full"
+                  style={{
+                    left: `${5 + (i * 2.3) % 90}%`,
+                    backgroundColor: ['#f093fb', '#f5576c', '#4facfe', '#f9ca24', '#43e97b', '#ff6b6b', '#a29bfe', '#fd79a8'][i % 8],
+                  }}
+                  initial={{ y: -20, opacity: 1, rotate: 0 }}
+                  animate={{ y: 800, opacity: 0, rotate: i * 30 }}
+                  transition={{ duration: 2 + (i % 4) * 0.4, delay: (i % 12) * 0.05 }}
+                />
+              ))}
+            </div>
+            <motion.div
+              initial={{ scale: 0.5, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ type: 'spring', damping: 12 }}
+              className="bg-white rounded-3xl p-8 text-center shadow-2xl max-w-sm mx-4 relative z-10"
+            >
+              <motion.div
+                animate={{ scale: [1, 1.2, 1] }}
+                transition={{ duration: 0.6, repeat: 2 }}
+                className="text-6xl mb-4"
+              >
+                🎉
+              </motion.div>
+              <h2 className="text-2xl font-black text-gray-800 mb-2">축하합니다!</h2>
+              <p className="text-lg font-bold text-primary-600 mb-1">{surname}{finalName.name}</p>
+              <p className="text-sm text-gray-500">우리 아이의 이름이 결정되었어요 ✨</p>
+              <p className="text-xs text-gray-400 mt-3">사주 보고서를 준비하고 있어요...</p>
+            </motion.div>
+          </motion.div>
         )}
       </AnimatePresence>
 
