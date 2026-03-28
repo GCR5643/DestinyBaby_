@@ -469,12 +469,12 @@ export default function NamingPage() {
                     <button
                       type="button"
                       onClick={() => setUseHangryeol(v => !v)}
-                      className={`w-11 h-6 rounded-full transition-colors relative ${
+                      className={`w-10 h-6 rounded-full transition-colors relative flex-shrink-0 ${
                         useHangryeol ? 'bg-primary-400' : 'bg-gray-200'
                       }`}
                     >
-                      <span className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${
-                        useHangryeol ? 'translate-x-5' : 'translate-x-0.5'
+                      <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${
+                        useHangryeol ? 'translate-x-4' : 'translate-x-0'
                       }`} />
                     </button>
                   </div>
