@@ -585,7 +585,7 @@ export default function NamingResultPage({ params }: { params: { id: string } })
             onClick={handleLoadMore}
             className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl border-2 border-primary-300 text-primary-600 font-medium hover:bg-primary-50 transition-colors mb-6"
           >
-            <Shuffle className="w-4 h-4" /> 더 뽑아보기 🎲
+            <Shuffle className="w-4 h-4" /> 다른 이름 추천 받기
           </button>
         )}
 
@@ -729,28 +729,8 @@ export default function NamingResultPage({ params }: { params: { id: string } })
           </button>
         </div>
 
-        {/* Bottom nav — 재생성 */}
+        {/* Bottom nav — 조건 변경 */}
         <div className="space-y-2">
-          <button
-            onClick={handleRegenerate}
-            disabled={isRegenerating || !canRegenerate}
-            className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl border-2 border-primary-300 text-primary-600 font-medium hover:bg-primary-50 transition-colors disabled:opacity-50"
-          >
-            <RefreshCw className={cn("w-4 h-4", isRegenerating && "animate-spin")} />
-            {isRegenerating
-              ? 'AI가 새 이름을 찾고 있어요...'
-              : !canRegenerate
-              ? `추천 횟수를 모두 사용했어요 (${MAX_REGEN}/${MAX_REGEN})`
-              : `다시 추천받기 (${regenCount}/${MAX_REGEN})`}
-          </button>
-          {!canRegenerate && !isLoggedIn && (
-            <button
-              onClick={() => router.push('/login?redirect=' + encodeURIComponent(window.location.pathname))}
-              className="w-full flex items-center justify-center gap-2 py-2.5 rounded-2xl text-sm text-primary-500 hover:bg-primary-50 transition-colors"
-            >
-              로그인하면 {5}회까지 추천받을 수 있어요 →
-            </button>
-          )}
           <button
             onClick={() => router.push('/naming')}
             className="w-full flex items-center justify-center gap-2 py-2.5 rounded-2xl text-sm text-gray-400 hover:text-gray-600 transition-colors"
