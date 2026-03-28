@@ -5,12 +5,9 @@ import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Volume2, Star, X, Shuffle, RefreshCw, BookmarkCheck, Bookmark } from 'lucide-react';
 import type { SuggestedName } from '@/types';
-import { getElementColor } from '@/lib/utils';
 import { DemoBanner } from '@/components/naming/DemoBanner';
 import { cn } from '@/lib/utils';
 import { trpc } from '@/lib/trpc/client';
-import OhengRadarChart from '@/components/saju/OhengRadarChart';
-import type { OhengElements } from '@/components/saju/OhengRadarChart';
 import { createClient } from '@/lib/supabase/client';
 import { SKIP_AUTH } from '@/lib/auth/skip-auth';
 
@@ -52,21 +49,12 @@ const TWO_CHAR: SuggestedName[] = [
   { name: '민서', hanja: '敏瑞', reasonShort: '총명하고 상서로운 기운의 이름', sajuScore: 86, element: 'wood' },
 ];
 
-const THREE_CHAR: SuggestedName[] = [
-  { name: '이슬비', hanja: '露霏霏', reasonShort: '이슬비처럼 촉촉하고 부드러운 이름', sajuScore: 89, element: 'water' },
-  { name: '햇살이', hanja: '陽光伊', reasonShort: '햇살처럼 따뜻하고 환한 기운', sajuScore: 87, element: 'fire' },
-  { name: '온누리', hanja: '溫世理', reasonShort: '온 세상을 따뜻하게 품는 이름', sajuScore: 85, element: 'earth' },
-  { name: '한결이', hanja: '一結伊', reasonShort: '한결같은 마음을 담은 이름', sajuScore: 83, element: 'wood' },
-  { name: '솔바람', hanja: '松風覽', reasonShort: '솔숲을 스치는 바람처럼 청량한 이름', sajuScore: 88, element: 'wood' },
-];
-
-const ALL_NAMES: Record<'1' | '2' | '3', SuggestedName[]> = {
+const ALL_NAMES: Record<'1' | '2', SuggestedName[]> = {
   '1': ONE_CHAR,
   '2': TWO_CHAR,
-  '3': THREE_CHAR,
 };
 
-type LengthFilter = '1' | '2' | '3';
+type LengthFilter = '1' | '2';
 
 // ── Popularity types & helpers ─────────────────────────────────────────────
 
@@ -109,19 +97,27 @@ function shuffle<T>(arr: T[]): T[] {
 
 // ── Sub-components ────────────────────────────────────────────────────────────
 
+const ELEMENT_KO: Record<string, string> = { wood: '목(木)', fire: '화(火)', earth: '토(土)', metal: '금(金)', water: '수(水)' };
+
 interface NameCardProps {
   name: SuggestedName;
   index: number;
   isCandidate: boolean;
   popularity: PopularityInfo | undefined;
+  surname: string;
+  lackingElement?: string;
   onAddCandidate: (name: SuggestedName) => void;
   onVoice: (name: string) => void;
   onFamous: (givenName: string) => void;
   isFamousActive: boolean;
 }
 
-function NameCard({ name, index, isCandidate, popularity, onAddCandidate, onVoice, onFamous, isFamousActive }: NameCardProps) {
-  const elementColor = getElementColor(name.element || 'wood');
+function NameCard({ name, index, isCandidate, popularity, surname, lackingElement, onAddCandidate, onVoice, onFamous, isFamousActive }: NameCardProps) {
+  const fullName = surname ? `${surname}${name.name}` : name.name;
+
+  // 한자 글자별 의미 설명 생성
+  const hanjaChars = (name.hanja || '').split('');
+  const nameChars = name.name.split('');
 
   return (
     <motion.div
@@ -130,51 +126,48 @@ function NameCard({ name, index, isCandidate, popularity, onAddCandidate, onVoic
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -20 }}
       transition={{ delay: index * 0.07 }}
-      className="bg-white rounded-2xl shadow-md overflow-hidden"
-      style={{ borderTop: `4px solid ${elementColor}` }}
+      className="bg-white rounded-2xl shadow-md overflow-hidden border border-gray-100"
     >
       <div className="p-5">
-        <div className="flex items-start justify-between mb-3">
+        <div className="flex items-start justify-between mb-2">
           <div>
-            <h2 className="text-3xl font-bold text-gray-800">{name.name}</h2>
-            <p className="text-base text-gray-400 mt-0.5">{name.hanja}</p>
+            <h2 className="text-3xl font-bold text-gray-800">{fullName}</h2>
+            <p className="text-sm text-gray-400 mt-0.5">
+              {surname && <span className="text-gray-300">{surname} </span>}
+              {name.hanja}
+            </p>
           </div>
           <div className="text-right">
-            <div className="text-2xl font-bold" style={{ color: elementColor }}>{name.sajuScore}</div>
-            <div className="text-xs text-gray-400">사주 적합도</div>
+            <div className="text-2xl font-bold text-primary-600">{name.sajuScore}</div>
+            <div className="text-xs text-gray-400">종합점수</div>
             <div className="mt-1.5">
               <TrendBadge info={popularity} />
             </div>
           </div>
         </div>
 
-        {/* Score bar */}
-        <div className="mb-3">
-          <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-            <motion.div
-              initial={{ width: 0 }}
-              animate={{ width: `${name.sajuScore}%` }}
-              transition={{ delay: index * 0.07 + 0.3, duration: 0.8 }}
-              className="h-full rounded-full"
-              style={{ backgroundColor: elementColor }}
-            />
-          </div>
+        {/* 이름 뜻 설명 */}
+        <div className="bg-gray-50 rounded-xl p-3.5 mb-3">
+          <p className="text-sm text-gray-700 leading-relaxed">
+            <strong className="text-gray-900">{fullName}</strong>은(는) {name.reasonShort}
+          </p>
         </div>
 
-        {/* 오행 레이더 차트 (소형) */}
-        {name.element && (() => {
-          const el = name.element!;
-          const oheng: OhengElements = { wood: 0, fire: 0, earth: 0, metal: 0, water: 0 };
-          oheng[el] = 3;
-          return (
-            <div className="flex justify-center mb-3">
-              <OhengRadarChart elements={oheng} size={160} showLabels={true} animated={true} />
-            </div>
-          );
-        })()}
-
-        {/* Meaning */}
-        <p className="text-sm text-gray-600 mb-4 leading-relaxed">{name.reasonShort}</p>
+        {/* 성명학 크리티컬 정보 */}
+        {(name.element || lackingElement) && (
+          <div className="flex flex-wrap gap-1.5 mb-3">
+            {name.element && (
+              <span className="inline-flex items-center gap-1 text-xs bg-primary-50 text-primary-700 px-2.5 py-1 rounded-full font-medium">
+                ✦ {ELEMENT_KO[name.element]} 기운
+              </span>
+            )}
+            {lackingElement && name.element && (
+              <span className="inline-flex items-center gap-1 text-xs bg-amber-50 text-amber-700 px-2.5 py-1 rounded-full font-medium">
+                부족한 {ELEMENT_KO[lackingElement]} 보완
+              </span>
+            )}
+          </div>
+        )}
 
         <div className="flex gap-2">
           <button
@@ -236,6 +229,20 @@ export default function NamingResultPage({ params }: { params: { id: string } })
   const [isRegenerating, setIsRegenerating] = useState(false);
   const [regenCount, setRegenCount] = useState(0);
   const [famousNameQuery, setFamousNameQuery] = useState<string | null>(null);
+  const [surname, setSurname] = useState('');
+  const [lackingElement, setLackingElement] = useState<string | undefined>();
+
+  // sessionStorage에서 성씨 및 사주 정보 복원
+  useEffect(() => {
+    try {
+      const payload = sessionStorage.getItem('guest-naming-payload');
+      if (payload) {
+        const parsed = JSON.parse(payload);
+        if (parsed.surname) setSurname(parsed.surname);
+        // 부족 오행은 서버에서 계산하지만, 클라이언트에선 SuggestedName의 element로 추정
+      }
+    } catch { /* ignore */ }
+  }, []);
 
   // 재생성 횟수 제한: 비로그인 3회, 로그인 5회
   const MAX_REGEN = isLoggedIn ? 5 : 3;
@@ -461,9 +468,8 @@ export default function NamingResultPage({ params }: { params: { id: string } })
   }, [candidates, createVoteSession]);
 
   const filterLabels: { key: LengthFilter; label: string }[] = [
-    { key: '1', label: '외자 (1글자)' },
     { key: '2', label: '두글자 (기본)' },
-    { key: '3', label: '세글자+' },
+    { key: '1', label: '외자 (1글자)' },
   ];
 
   // Show loading while fetching real result
@@ -540,6 +546,8 @@ export default function NamingResultPage({ params }: { params: { id: string } })
                 index={i}
                 isCandidate={candidates.some(c => c.name === name.name)}
                 popularity={popularityMap[name.name]}
+                surname={surname}
+                lackingElement={lackingElement}
                 onAddCandidate={handleAddCandidate}
                 onVoice={handleVoice}
                 onFamous={(givenName) => setFamousNameQuery(prev => prev === givenName ? null : givenName)}
