@@ -4,11 +4,12 @@ export const dynamic = 'force-dynamic';
 
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Settings, CreditCard, LogOut, ChevronRight, Heart, X, Calendar, Sparkles, LogIn, Gem } from 'lucide-react';
+import { Settings, CreditCard, LogOut, ChevronRight, Heart, X, Calendar, Sparkles, LogIn, Gem, Users, Check } from 'lucide-react';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
 import { useUserStore } from '@/stores/userStore';
+import { useParentStore, type ParentInfo } from '@/stores/parentStore';
 import { trpc } from '@/lib/trpc/client';
 import { SKIP_AUTH } from '@/lib/auth/skip-auth';
 
@@ -21,6 +22,7 @@ interface ChildEntry {
 export default function ProfilePage() {
   const router = useRouter();
   const { user } = useUserStore();
+  const { dad, mom, setDad, setMom } = useParentStore();
   const { data: statsData } = trpc.user.getStats.useQuery();
   const { data: luckyDatesData } = trpc.birthdate.getMyLuckyDates.useQuery();
   const luckyDateCount = luckyDatesData?.length ?? 0;
@@ -30,6 +32,19 @@ export default function ProfilePage() {
   const [showAddChild, setShowAddChild] = useState(false);
   const [childName, setChildName] = useState('');
   const [childBirthDate, setChildBirthDate] = useState('');
+
+  // Parent edit state
+  const [showParentEdit, setShowParentEdit] = useState(false);
+  const [dadForm, setDadForm] = useState<ParentInfo>({ name: dad?.name || '', birthDate: dad?.birthDate || '', birthTime: dad?.birthTime || '' });
+  const [momForm, setMomForm] = useState<ParentInfo>({ name: mom?.name || '', birthDate: mom?.birthDate || '', birthTime: mom?.birthTime || '' });
+  const [parentSaved, setParentSaved] = useState(false);
+
+  const handleSaveParents = () => {
+    setDad(dadForm.name || dadForm.birthDate ? dadForm : null);
+    setMom(momForm.name || momForm.birthDate ? momForm : null);
+    setParentSaved(true);
+    setTimeout(() => { setParentSaved(false); setShowParentEdit(false); }, 1200);
+  };
 
   useEffect(() => {
     const stored = localStorage.getItem('my-children');
@@ -135,6 +150,84 @@ export default function ProfilePage() {
               <div className="text-xs text-gray-400">{stat.label}</div>
             </div>
           ))}
+        </div>
+
+        {/* Parents Section */}
+        <div className="bg-white rounded-2xl shadow-sm p-4 mb-4">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="font-bold text-gray-800 flex items-center gap-2">
+              <Users className="w-4 h-4 text-primary-500" />
+              부모 정보
+            </h2>
+            <button
+              onClick={() => setShowParentEdit(!showParentEdit)}
+              className="text-xs text-primary-600 font-semibold bg-primary-50 px-3 py-1.5 rounded-full"
+            >
+              {showParentEdit ? '접기' : (dad || mom) ? '수정' : '입력하기'}
+            </button>
+          </div>
+
+          {!showParentEdit && !dad && !mom && (
+            <p className="text-sm text-gray-400 text-center py-3">
+              부모 정보를 입력하면 작명·탄생일·운세에서<br />자동으로 채워져요 ✨
+            </p>
+          )}
+
+          {!showParentEdit && (dad || mom) && (
+            <div className="space-y-2">
+              {dad && (
+                <div className="flex items-center gap-3 p-3 bg-blue-50 rounded-xl">
+                  <div className="w-9 h-9 bg-blue-200 rounded-full flex items-center justify-center text-blue-700 font-bold text-sm">👨</div>
+                  <div className="flex-1">
+                    <p className="font-semibold text-gray-800 text-sm">{dad.name || '아빠'}</p>
+                    <p className="text-xs text-gray-400">{dad.birthDate?.replace(/-/g, '.')}{dad.birthTime ? ` ${dad.birthTime}` : ''}</p>
+                  </div>
+                </div>
+              )}
+              {mom && (
+                <div className="flex items-center gap-3 p-3 bg-pink-50 rounded-xl">
+                  <div className="w-9 h-9 bg-pink-200 rounded-full flex items-center justify-center text-pink-700 font-bold text-sm">👩</div>
+                  <div className="flex-1">
+                    <p className="font-semibold text-gray-800 text-sm">{mom.name || '엄마'}</p>
+                    <p className="text-xs text-gray-400">{mom.birthDate?.replace(/-/g, '.')}{mom.birthTime ? ` ${mom.birthTime}` : ''}</p>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {showParentEdit && (
+            <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="space-y-4">
+              {/* 아빠 */}
+              <div className="p-3 bg-blue-50 rounded-xl space-y-2">
+                <p className="text-xs font-bold text-blue-700">👨 아빠 (남편)</p>
+                <input type="text" value={dadForm.name} onChange={e => setDadForm({ ...dadForm, name: e.target.value })}
+                  placeholder="이름" className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:border-primary-400" />
+                <div className="grid grid-cols-2 gap-2">
+                  <input type="date" value={dadForm.birthDate} onChange={e => setDadForm({ ...dadForm, birthDate: e.target.value })}
+                    className="border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:border-primary-400" style={{ colorScheme: 'light' }} />
+                  <input type="time" value={dadForm.birthTime || ''} onChange={e => setDadForm({ ...dadForm, birthTime: e.target.value })}
+                    placeholder="태어난 시간 (선택)" className="border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:border-primary-400" style={{ colorScheme: 'light' }} />
+                </div>
+              </div>
+              {/* 엄마 */}
+              <div className="p-3 bg-pink-50 rounded-xl space-y-2">
+                <p className="text-xs font-bold text-pink-700">👩 엄마 (아내)</p>
+                <input type="text" value={momForm.name} onChange={e => setMomForm({ ...momForm, name: e.target.value })}
+                  placeholder="이름" className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:border-primary-400" />
+                <div className="grid grid-cols-2 gap-2">
+                  <input type="date" value={momForm.birthDate} onChange={e => setMomForm({ ...momForm, birthDate: e.target.value })}
+                    className="border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:border-primary-400" style={{ colorScheme: 'light' }} />
+                  <input type="time" value={momForm.birthTime || ''} onChange={e => setMomForm({ ...momForm, birthTime: e.target.value })}
+                    placeholder="태어난 시간 (선택)" className="border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:border-primary-400" style={{ colorScheme: 'light' }} />
+                </div>
+              </div>
+              <button onClick={handleSaveParents}
+                className="w-full bg-primary-500 text-white py-2.5 rounded-xl text-sm font-bold flex items-center justify-center gap-2">
+                {parentSaved ? <><Check className="w-4 h-4" /> 저장 완료!</> : '저장하기'}
+              </button>
+            </motion.div>
+          )}
         </div>
 
         {/* Children Section */}

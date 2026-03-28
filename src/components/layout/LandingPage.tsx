@@ -3,8 +3,10 @@
 import { motion } from 'framer-motion';
 import Link from 'next/link';
 import { Sparkles, Star, ChevronRight, Volume2, Calendar, ClipboardCheck, Sun, Search } from 'lucide-react';
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { useParentStore } from '@/stores/parentStore';
+import { useUserStore } from '@/stores/userStore';
 
 // 고정 배경 원형 데이터
 const BG_CIRCLES = [
@@ -31,13 +33,6 @@ const FEATURES = [
   { emoji: '☀️', title: '오늘의 운수', desc: '사주 기반 매일 맞춤 운수·칭찬·육아팁' },
 ];
 
-const COMPARE_ROWS = [
-  { feature: '이름 추천', traditional: '10~30만원', destiny: '무료' },
-  { feature: '탄생일 추천', traditional: '10~30만원', destiny: '무료' },
-  { feature: '사주 상세 분석', traditional: '별도 비용', destiny: '1,000원' },
-  { feature: '음성 AI', traditional: '❌', destiny: '✅' },
-  { feature: '오늘의 운수', traditional: '❌', destiny: '✅' },
-];
 
 const REVIEWS = [
   { name: '김**', text: '사주를 보고 이름을 정해줘서 더 믿음이 가요. 아이가 건강하게 잘 크고 있어요 😊', rating: 5 },
@@ -58,8 +53,29 @@ export default function LandingPage() {
   const router = useRouter();
   const [isPlaying, setIsPlaying] = useState(false);
   const [reviewName, setReviewName] = useState('');
+  const [showOnboarding, setShowOnboarding] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const todayLucky = getTodayLuckyPreview();
+  const { user } = useUserStore();
+  const { hasAnyParent } = useParentStore();
+
+  // 온보딩 팝업: 비로그인 or 로그인했어도 부모정보 미입력 시
+  useEffect(() => {
+    const dismissed = sessionStorage.getItem('onboarding-dismissed');
+    if (dismissed) return;
+    // 약간 딜레이 후 표시 (페이지 로드 직후는 어색)
+    const timer = setTimeout(() => {
+      if (!user || !hasAnyParent()) {
+        setShowOnboarding(true);
+      }
+    }, 2000);
+    return () => clearTimeout(timer);
+  }, [user, hasAnyParent]);
+
+  const dismissOnboarding = () => {
+    setShowOnboarding(false);
+    sessionStorage.setItem('onboarding-dismissed', 'true');
+  };
 
   const handleVoicePlay = async () => {
     if (isPlaying) return;
@@ -408,27 +424,6 @@ export default function LandingPage() {
         </div>
       </div>
 
-      {/* ========== 비교표 ========== */}
-      <div className="max-w-lg mx-auto px-4 py-10">
-        <motion.div initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }}>
-          <h2 className="text-lg font-bold text-center mb-5">기존 작명소 vs 운명의 아이</h2>
-          <div className="bg-white rounded-2xl overflow-hidden shadow-sm">
-            <div className="grid grid-cols-3 bg-primary-500 text-white text-xs font-bold">
-              <div className="p-2.5">항목</div>
-              <div className="p-2.5 text-center">기존 작명소</div>
-              <div className="p-2.5 text-center">운명의 아이</div>
-            </div>
-            {COMPARE_ROWS.map((row, i) => (
-              <div key={row.feature} className={`grid grid-cols-3 text-xs ${i % 2 === 0 ? 'bg-gray-50' : 'bg-white'}`}>
-                <div className="p-2.5 text-gray-600 font-medium">{row.feature}</div>
-                <div className="p-2.5 text-center text-gray-400">{row.traditional}</div>
-                <div className="p-2.5 text-center text-primary-600 font-bold">{row.destiny}</div>
-              </div>
-            ))}
-          </div>
-        </motion.div>
-      </div>
-
       {/* ========== 특별함 (최하단) ========== */}
       <div className="bg-white py-10 px-4">
         <div className="max-w-lg mx-auto">
@@ -453,19 +448,38 @@ export default function LandingPage() {
         </div>
       </div>
 
-      {/* ========== Bottom CTA ========== */}
-      <div className="bg-gradient-to-br from-primary-600 to-secondary-400 py-10 px-4 text-center text-white">
-        <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}>
-          <h2 className="text-xl font-black mb-2">지금 바로 시작해보세요</h2>
-          <p className="text-white/80 text-sm mb-5">AI가 사주로 찾아주는 우리 아이의 운명</p>
-          <Link href="/naming"
-            className="inline-flex items-center justify-center gap-2 bg-white text-primary-700 py-3.5 px-8 rounded-2xl font-black text-base shadow-xl">
-            <Sparkles className="w-5 h-5 text-gold-400" />
-            무료로 시작하기
-          </Link>
-          <p className="text-xs text-white/50 mt-3">전통 명리학 기반 · 오락 목적 · 결과 참고용</p>
+      {/* ========== 온보딩 팝업 (hover card) ========== */}
+      {showOnboarding && (
+        <motion.div
+          initial={{ opacity: 0, y: 40 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: 40 }}
+          className="fixed bottom-20 left-4 right-4 z-50 max-w-lg mx-auto"
+        >
+          <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 p-5 relative">
+            <button onClick={dismissOnboarding} className="absolute top-3 right-3 text-gray-300 hover:text-gray-500 text-lg">✕</button>
+            <div className="flex items-start gap-3">
+              <div className="w-11 h-11 bg-primary-100 rounded-xl flex items-center justify-center text-2xl flex-shrink-0">✨</div>
+              <div>
+                <p className="font-bold text-gray-800 text-sm mb-1">
+                  {!user ? '로그인하고 맞춤 서비스를 받아보세요' : '부모 정보를 입력해주세요'}
+                </p>
+                <p className="text-xs text-gray-500 leading-relaxed">
+                  {!user
+                    ? '로그인 후 부모 생년월일을 입력하면 작명·탄생일·운세에서 자동으로 채워져요'
+                    : '프로필에서 부모 생년월일을 입력하면 작명·탄생일·운세에서 매번 입력하지 않아도 돼요'}
+                </p>
+                <button
+                  onClick={() => { dismissOnboarding(); router.push(!user ? '/login?redirect=/profile' : '/profile'); }}
+                  className="mt-3 bg-primary-500 text-white text-xs font-bold px-5 py-2 rounded-lg"
+                >
+                  {!user ? '로그인하기' : '프로필에서 입력하기'}
+                </button>
+              </div>
+            </div>
+          </div>
         </motion.div>
-      </div>
+      )}
 
       {/* ========== Footer ========== */}
       <footer className="bg-gray-100 border-t border-gray-200 px-4 py-8">

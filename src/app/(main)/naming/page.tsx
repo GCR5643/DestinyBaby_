@@ -8,6 +8,7 @@ import { motion } from 'framer-motion';
 import { Sparkles, ChevronRight, Search } from 'lucide-react';
 import { trpc } from '@/lib/trpc/client';
 import { useNamingStore } from '@/stores/namingStore';
+import { useParentStore } from '@/stores/parentStore';
 import { cn } from '@/lib/utils';
 import { DemoBanner } from '@/components/naming/DemoBanner';
 
@@ -57,8 +58,16 @@ export default function NamingPage() {
   const [useLuckyDate, setUseLuckyDate] = useState(false);
   const [selectedLuckyDateId, setSelectedLuckyDateId] = useState<string | null>(null);
   const [trendLevel, setTrendLevel] = useState<'trendy' | 'balanced' | 'classic'>('balanced');
+  const [nameLength, setNameLength] = useState<'1' | '2'>('2');
+  const { dad, mom } = useParentStore();
   const { register, handleSubmit, watch, control, setValue, formState: { errors } } = useForm<NamingFormData>({
-    defaultValues: { gender: 'unknown' }
+    defaultValues: {
+      gender: 'unknown',
+      parent1BirthDate: dad?.birthDate || '',
+      parent1BirthTime: dad?.birthTime || '',
+      parent2BirthDate: mom?.birthDate || '',
+      parent2BirthTime: mom?.birthTime || '',
+    }
   });
   const generateNames = trpc.naming.generateNames.useMutation();
   const generateNamesPublic = trpc.naming.generateNamesPublic.useMutation();
@@ -66,6 +75,12 @@ export default function NamingPage() {
     retry: false,
   });
   const { setParent1Saju, setParent2Saju } = useNamingStore();
+
+  // parentStore에서 부모 정보가 늦게 hydrate되는 경우 대비
+  useEffect(() => {
+    if (dad?.birthDate) { setValue('parent1BirthDate', dad.birthDate); if (dad.birthTime) setValue('parent1BirthTime', dad.birthTime); }
+    if (mom?.birthDate) { setValue('parent2BirthDate', mom.birthDate); if (mom.birthTime) setValue('parent2BirthTime', mom.birthTime); }
+  }, [dad, mom, setValue]);
 
   useEffect(() => {
     const cookies = document.cookie.split(';').map(c => c.trim());
@@ -102,6 +117,7 @@ export default function NamingPage() {
           : undefined,
         siblingNames: data.siblingNames ? data.siblingNames.split(',').map(s => s.trim()) : undefined,
         trendLevel,
+        nameLength,
       };
 
       // 재생성을 위해 payload는 항상 저장 (로그인/비로그인 공통)
@@ -404,6 +420,32 @@ export default function NamingPage() {
                     className={cn(
                       'text-center py-2.5 px-1 rounded-xl border-2 transition-all',
                       trendLevel === opt.value ? opt.color + ' ring-2 ring-primary-400' : 'border-gray-200 text-gray-500'
+                    )}
+                  >
+                    <div className="text-sm font-medium">{opt.label}</div>
+                    <div className="text-[10px] mt-0.5 opacity-70">{opt.desc}</div>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* 이름 글자 수 */}
+            <div>
+              <label className="text-xs text-gray-500 mb-2 block">이름 글자 수</label>
+              <div className="grid grid-cols-2 gap-2">
+                {[
+                  { value: '2' as const, label: '두글자', desc: '지우, 서준, 하윤' },
+                  { value: '1' as const, label: '외자', desc: '온, 율, 빛, 현' },
+                ].map(opt => (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => setNameLength(opt.value)}
+                    className={cn(
+                      'text-center py-2.5 px-1 rounded-xl border-2 transition-all',
+                      nameLength === opt.value
+                        ? 'border-primary-400 bg-primary-50 text-primary-700 ring-2 ring-primary-400'
+                        : 'border-gray-200 text-gray-500'
                     )}
                   >
                     <div className="text-sm font-medium">{opt.label}</div>

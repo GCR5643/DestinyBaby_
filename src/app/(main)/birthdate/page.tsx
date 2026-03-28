@@ -5,6 +5,7 @@ import { useForm, Controller } from 'react-hook-form';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Calendar, Baby, Users, ChevronRight, ChevronLeft, Sparkles } from 'lucide-react';
 import { trpc } from '@/lib/trpc/client';
+import { useParentStore } from '@/stores/parentStore';
 import { cn } from '@/lib/utils';
 import { KoreanDatePicker } from '@/components/ui/KoreanDatePicker';
 
@@ -100,10 +101,23 @@ export default function BirthDatePage() {
     setIsGuest(guestCookie?.split('=')[1] === 'true');
   }, []);
 
+  const { dad, mom } = useParentStore();
   const { register, handleSubmit, watch, setValue, control, formState: { errors } } =
     useForm<BirthDateFormData>({
-      defaultValues: { babyGender: 'unknown' },
+      defaultValues: {
+        babyGender: 'unknown',
+        parent1BirthDate: dad?.birthDate || '',
+        parent1BirthTime: dad?.birthTime || '',
+        parent2BirthDate: mom?.birthDate || '',
+        parent2BirthTime: mom?.birthTime || '',
+      },
     });
+
+  // parentStore hydrate 후 자동 채우기
+  useEffect(() => {
+    if (dad?.birthDate) { setValue('parent1BirthDate', dad.birthDate); if (dad.birthTime) setValue('parent1BirthTime', dad.birthTime); }
+    if (mom?.birthDate) { setValue('parent2BirthDate', mom.birthDate); if (mom.birthTime) setValue('parent2BirthTime', mom.birthTime); }
+  }, [dad, mom, setValue]);
 
   const recommendDates = trpc.birthdate.recommendDates.useMutation();
   const saveLuckyDate = trpc.birthdate.saveLuckyDate.useMutation();
