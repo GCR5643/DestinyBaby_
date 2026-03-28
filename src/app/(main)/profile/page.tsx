@@ -71,7 +71,7 @@ export default function ProfilePage() {
       title: '내 아이 관리',
       items: [
         { href: '/profile/lucky-dates', icon: Calendar, label: '내 예비 사주 목록', desc: '길일 관리 · 산부인과 일정 조율', badge: luckyDateCount as number | string | undefined },
-        { href: '/naming/result/guest', icon: Sparkles, label: '이름 후보 관리 (준비중)', desc: '상세 분석 · 비교 · 최종 선택', badge: undefined as number | string | undefined },
+        { href: '/naming', icon: Sparkles, label: '이름 추천받기', desc: '사주 기반 AI 작명 · 상세 분석', badge: undefined as number | string | undefined },
         { href: '/profile/favorites', icon: Heart, label: '즐겨찾기 카드', desc: '운명 카드 컬렉션', badge: undefined as number | string | undefined },
       ],
     },

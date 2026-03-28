@@ -85,7 +85,7 @@ export default function FragmentsPage() {
                     ? 'border-purple-400 bg-purple-50 shadow-md'
                     : 'border-gray-100 bg-white hover:border-purple-200'
                 }`}
-                onClick={() => alert('결제 기능은 곧 오픈될 예정이에요! 🚀')}
+                onClick={() => { const d = document.createElement('div'); d.className='fixed top-4 left-1/2 -translate-x-1/2 bg-gray-800 text-white px-5 py-2.5 rounded-xl text-sm z-50 shadow-lg'; d.textContent='💎 결제 기능이 곧 오픈됩니다!'; document.body.appendChild(d); setTimeout(()=>d.remove(),2500); }}
               >
                 <div className="w-12 h-12 bg-gradient-to-br from-purple-400 to-primary-400 rounded-xl flex items-center justify-center text-white font-black text-sm">
                   {pack.fragments}

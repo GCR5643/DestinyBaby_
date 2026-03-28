@@ -321,17 +321,14 @@ export default function LandingPage() {
           <p className="text-xs text-gray-400 font-semibold mb-3">운명의 아이</p>
           <div className="space-y-1 text-xs text-gray-500 mb-4">
             <p>대표: 이건찬</p>
-            <p>사업자등록번호: 준비 중</p>
-            <p>통신판매업신고번호: 준비 중</p>
+            <p>문의: support@destiny-baby.com</p>
           </div>
           <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-gray-400">
-            <button onClick={e => { e.preventDefault(); alert('준비 중입니다'); }} className="hover:text-gray-600 transition-colors">회사소개</button>
+            <Link href="/terms" className="hover:text-gray-600 transition-colors">이용약관</Link>
             <span className="text-gray-300">|</span>
-            <button onClick={e => { e.preventDefault(); alert('준비 중입니다'); }} className="hover:text-gray-600 transition-colors">고객센터</button>
+            <Link href="/privacy" className="hover:text-gray-600 transition-colors font-semibold text-gray-500">개인정보처리방침</Link>
             <span className="text-gray-300">|</span>
-            <button onClick={e => { e.preventDefault(); alert('준비 중입니다'); }} className="hover:text-gray-600 transition-colors">이용약관</button>
-            <span className="text-gray-300">|</span>
-            <button onClick={e => { e.preventDefault(); alert('준비 중입니다'); }} className="hover:text-gray-600 transition-colors font-semibold text-gray-500">개인정보처리방침</button>
+            <a href="mailto:support@destiny-baby.com" className="hover:text-gray-600 transition-colors">고객센터</a>
           </div>
           <p className="text-xs text-gray-400 mt-4">© {new Date().getFullYear()} 운명의 아이. All rights reserved.</p>
         </div>

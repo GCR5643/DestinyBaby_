@@ -580,7 +580,7 @@ function BirthRecommendTab() {
               <button
                 type="button"
                 className="w-full bg-gradient-to-r from-amber-400 to-orange-500 text-white py-3.5 rounded-2xl font-bold shadow-lg"
-                onClick={() => alert('결제 기능은 준비 중입니다.')}
+                onClick={() => { const t = document.getElementById('pay-toast'); if(t) return; const d = document.createElement('div'); d.id='pay-toast'; d.className='fixed top-4 left-1/2 -translate-x-1/2 bg-gray-800 text-white px-5 py-2.5 rounded-xl text-sm z-50 shadow-lg'; d.textContent='💎 결제 기능이 곧 오픈됩니다!'; document.body.appendChild(d); setTimeout(()=>d.remove(),2500); }}
               >
                 🔒 출산일 추천받기 — 15,000원
               </button>
@@ -628,7 +628,7 @@ function BirthRecommendTab() {
               <div className="text-2xl font-black text-amber-500 mb-4">15,000원</div>
               <button
                 className="w-full bg-gradient-to-r from-amber-400 to-orange-500 text-white py-3 rounded-2xl font-bold shadow-md"
-                onClick={() => alert('결제 기능은 준비 중입니다.')}
+                onClick={() => { const t = document.getElementById('pay-toast'); if(t) return; const d = document.createElement('div'); d.id='pay-toast'; d.className='fixed top-4 left-1/2 -translate-x-1/2 bg-gray-800 text-white px-5 py-2.5 rounded-xl text-sm z-50 shadow-lg'; d.textContent='💎 결제 기능이 곧 오픈됩니다!'; document.body.appendChild(d); setTimeout(()=>d.remove(),2500); }}
               >
                 🔒 구매하고 확인하기
               </button>

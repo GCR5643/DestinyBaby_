@@ -49,7 +49,7 @@ export default function ShopPage() {
                 </div>
               </div>
               <button
-                onClick={() => alert(`${item.name} 구매: ${item.price.toLocaleString()}원`)}
+                onClick={() => { const d = document.createElement('div'); d.className='fixed top-4 left-1/2 -translate-x-1/2 bg-gray-800 text-white px-5 py-2.5 rounded-xl text-sm z-50 shadow-lg'; d.textContent='💎 결제 기능이 곧 오픈됩니다!'; document.body.appendChild(d); setTimeout(()=>d.remove(),2500); }}
                 className="bg-primary-500 text-white py-2 px-4 rounded-xl font-bold text-sm flex-shrink-0"
               >
                 {item.price.toLocaleString()}원

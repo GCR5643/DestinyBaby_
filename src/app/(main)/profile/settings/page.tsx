@@ -86,12 +86,7 @@ export default function ProfileSettingsPage() {
             <div className="w-20 h-20 rounded-full bg-primary-100 flex items-center justify-center text-3xl font-bold text-primary-600 mb-2">
               {avatarInitial}
             </div>
-            <button
-              onClick={() => alert('프로필 사진 변경 기능은 준비 중입니다.')}
-              className="text-sm text-primary-600 font-medium"
-            >
-              변경
-            </button>
+            <span className="text-xs text-gray-400">프로필</span>
           </div>
 
           {/* Nickname */}
