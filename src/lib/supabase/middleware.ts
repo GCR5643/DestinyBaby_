@@ -31,6 +31,11 @@ export async function updateSession(request: NextRequest) {
     return supabaseResponse;
   }
 
+  // 공개 경로: 인증 없이 접근 가능 (투표 바이럴 등)
+  const publicPaths = ['/naming/vote/', '/daily-fortune', '/birthdate'];
+  const isPublic = publicPaths.some(p => request.nextUrl.pathname.startsWith(p));
+  if (isPublic) return supabaseResponse;
+
   const protectedPaths = ['/saju', '/cards', '/community', '/shop', '/profile', '/credits', '/naming'];
   const isProtected = protectedPaths.some(p => request.nextUrl.pathname.startsWith(p));
 

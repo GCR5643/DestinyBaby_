@@ -21,7 +21,7 @@ function isActive(expiresAt: string | null) {
 export default function ProfileVotesPage() {
   const router = useRouter();
   const { user } = useUserStore();
-  const { data: sessions, isLoading } = trpc.voting.getMySessions.useQuery();
+  const { data: sessions, isLoading } = trpc.voting.getMySessions.useQuery(undefined, { enabled: !!user || SKIP_AUTH });
 
   if (!user && !SKIP_AUTH) {
     return (

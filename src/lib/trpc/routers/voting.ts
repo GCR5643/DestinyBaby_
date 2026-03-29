@@ -118,11 +118,17 @@ export const votingRouter = createTRPCRouter({
       // 세션 조회
       const { data: session } = await ctx.supabase
         .from('name_vote_sessions')
-        .select('id')
+        .select('id, expires_at')
         .eq('share_code', input.shareCode)
         .single();
 
       if (!session) throw new Error('투표 세션을 찾을 수 없습니다');
+
+      // 만료 체크
+      const expiresAt = (session as { id: string; expires_at?: string }).expires_at;
+      if (expiresAt && new Date(expiresAt) < new Date()) {
+        throw new Error('투표 기간이 종료된 세션입니다');
+      }
 
       // 제출 생성
       const { data: submission, error: subError } = await ctx.supabase
