@@ -63,7 +63,7 @@ export default function VotePage({ params }: { params: { shareId: string } }) {
       sessionQuery.refetch();
     },
     onError: (err) => {
-      setErrorMsg(err.message || '투표에 실패했어요. 다시 시도해주세요.');
+      setErrorMsg(err.message || '투표를 전송하지 못했어요. 잠시 후 다시 눌러주세요.');
       setTimeout(() => setErrorMsg(''), 3000);
     },
   });
@@ -119,8 +119,8 @@ export default function VotePage({ params }: { params: { shareId: string } }) {
         {/* Header */}
         <div className="bg-gradient-to-br from-pink-400 to-primary-500 pt-12 pb-10 px-4 text-white text-center">
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
-            <p className="text-3xl mb-2">🍼</p>
-            <h1 className="text-2xl font-bold mb-1">우리 아이 이름 투표</h1>
+            <p className="text-3xl mb-2">👶</p>
+            <h1 className="text-2xl font-bold mb-1">{sessionQuery.data?.title ?? '우리 아이 이름 투표'}</h1>
             <p className="text-sm opacity-80">총 {totalVotes}명 참여 중</p>
           </motion.div>
         </div>
@@ -208,7 +208,7 @@ export default function VotePage({ params }: { params: { shareId: string } }) {
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
           <p className="text-3xl mb-2">🍼</p>
           <h1 className="text-2xl font-bold mb-1">우리 아이 이름 투표</h1>
-          <p className="text-sm opacity-80">총 {totalVotes}명 참여했어요</p>
+          <p className="text-sm opacity-80">{totalVotes > 0 ? `총 ${totalVotes}명이 참여했어요` : '첫 번째 투표자가 되어보세요!'}</p>
         </motion.div>
       </div>
 
@@ -221,7 +221,7 @@ export default function VotePage({ params }: { params: { shareId: string } }) {
           transition={{ delay: 0.1 }}
           className="text-center text-sm text-gray-500 pt-2"
         >
-          마음에 드는 이름을 모두 선택해주세요 ✨
+          마음에 드는 이름을 골라주세요 — 여러 개도 괜찮아요! ✨
         </motion.p>
 
         {/* Candidate cards */}
@@ -236,6 +236,8 @@ export default function VotePage({ params }: { params: { shareId: string } }) {
               initial={{ opacity: 0, y: 30 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: i * 0.08 }}
+              aria-pressed={isSelected}
+              aria-label={`${fullName} 선택`}
               onClick={() => toggleName(candidate.name)}
               className={`w-full text-left bg-white rounded-2xl shadow-sm overflow-hidden transition-all duration-200 relative ${
                 isSelected
@@ -243,10 +245,7 @@ export default function VotePage({ params }: { params: { shareId: string } }) {
                   : 'border-2 border-gray-100 hover:border-gray-200'
               }`}
             >
-              {/* Vote count badge */}
-              <span className="absolute top-4 right-4 bg-gray-100 text-gray-500 text-xs font-medium px-2.5 py-1 rounded-full">
-                {voteCount}표
-              </span>
+              {/* Vote count badge — 투표 전에는 숨김 (사회적 편향 방지) */}
 
               {/* Selected checkmark */}
               {isSelected && (
@@ -290,14 +289,17 @@ export default function VotePage({ params }: { params: { shareId: string } }) {
           transition={{ delay: candidates.length * 0.08 + 0.1 }}
           className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 space-y-4"
         >
-          <h3 className="font-semibold text-gray-800 text-base">투표자 정보</h3>
+          <h3 className="font-semibold text-gray-800 text-base">이름과 축하 한마디 남기기 (선택)</h3>
 
           {/* Anonymous toggle */}
           <div className="flex items-center justify-between">
             <span className="text-sm text-gray-600">익명으로 투표</span>
             <button
+              role="switch"
+              aria-checked={isAnonymous}
+              aria-label="익명 투표 전환"
               onClick={() => setIsAnonymous(v => !v)}
-              className={`relative w-12 h-6 rounded-full transition-colors duration-200 focus:outline-none ${
+              className={`relative w-12 h-6 rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-primary-300 ${
                 isAnonymous ? 'bg-primary-500' : 'bg-gray-200'
               }`}
             >
@@ -335,7 +337,7 @@ export default function VotePage({ params }: { params: { shareId: string } }) {
           {/* Blessing message */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1.5">
-              덕담 <span className="text-gray-400 font-normal">(선택)</span>
+              축하 한마디 <span className="text-gray-400 font-normal">(선택)</span>
             </label>
             <textarea
               value={blessingMessage}
@@ -438,7 +440,7 @@ export default function VotePage({ params }: { params: { shareId: string } }) {
                   href="/daily-fortune"
                   className="block w-full py-3.5 rounded-2xl border-2 border-primary-200 text-primary-600 font-medium text-sm hover:bg-primary-50 transition-colors"
                 >
-                  오늘의 운세도 한번 보시겠어요? 🌟
+                  이름 운세도 함께 확인해 볼까요? 🌟
                 </a>
                 <button
                   onClick={() => setShowSuccessPopup(false)}

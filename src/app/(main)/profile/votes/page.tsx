@@ -128,7 +128,7 @@ export default function ProfileVotesPage() {
                               : 'bg-gray-100 text-gray-400'
                           }`}
                         >
-                          {active ? '진행중' : '종료'}
+                          {active ? '진행 중' : '마감됨'}
                         </span>
                       </div>
 
@@ -153,7 +153,7 @@ export default function ProfileVotesPage() {
                       <div className="flex items-center gap-3 text-xs text-gray-400">
                         <span className="flex items-center gap-1">
                           <Users className="w-3.5 h-3.5" />
-                          투표 {session.totalVoters}명
+                          {session.totalVoters}명 참여
                         </span>
                         <span className="flex items-center gap-1">
                           <Calendar className="w-3.5 h-3.5" />
@@ -178,7 +178,11 @@ export default function ProfileVotesPage() {
                           await navigator.share({ title: session.title, url });
                         } else {
                           await navigator.clipboard.writeText(url);
-                          alert('링크가 복사되었어요!');
+                          // 토스트 대체 (alert 제거)
+                          const btn = e.currentTarget;
+                          const orig = btn.textContent;
+                          btn.textContent = '✓ 복사됨';
+                          setTimeout(() => { btn.textContent = orig; }, 2000);
                         }
                       }}
                       className="flex items-center gap-1.5 text-xs text-primary-600 font-semibold bg-primary-50 px-3 py-1.5 rounded-full"

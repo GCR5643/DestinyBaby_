@@ -299,12 +299,12 @@ export default function VoteResultsPage() {
           transition={{ delay: 0.5 }}
           className="bg-white rounded-2xl shadow-md p-5"
         >
-          <h3 className="font-bold text-gray-800 text-lg mb-4">축하 메시지 💝</h3>
+          <h3 className="font-bold text-gray-800 text-lg mb-4">소중한 축하 한마디 💝</h3>
           <AnimatePresence>
             {blessings.length === 0 ? (
               <div className="text-center py-6">
                 <p className="text-4xl mb-2">💌</p>
-                <p className="text-sm text-gray-400">아직 덕담이 없어요</p>
+                <p className="text-sm text-gray-400">아직 남긴 메시지가 없어요</p>
               </div>
             ) : (
               <div className="space-y-3">
@@ -362,7 +362,7 @@ export default function VoteResultsPage() {
             href={`/naming/vote/${shareCode}`}
             className="block w-full text-center py-3 rounded-2xl border-2 border-gray-200 text-gray-600 font-medium hover:bg-gray-50 transition-colors text-sm"
           >
-            ← 투표 페이지로 돌아가기
+            ← 투표에 참여하러 가기
           </Link>
 
           <Link
