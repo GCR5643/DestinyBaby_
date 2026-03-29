@@ -9,6 +9,7 @@ import { birthdateRouter } from './routers/birthdate';
 import { fragmentsRouter } from './routers/fragments';
 import { checkinRouter } from './routers/checkin';
 import { dailyFortuneRouter } from './routers/daily-fortune';
+import { votingRouter } from './routers/voting';
 
 export const appRouter = createTRPCRouter({
   naming: namingRouter,
@@ -21,6 +22,7 @@ export const appRouter = createTRPCRouter({
   fragments: fragmentsRouter,
   checkin: checkinRouter,
   dailyFortune: dailyFortuneRouter,
+  voting: votingRouter,
 });
 
 export type AppRouter = typeof appRouter;
