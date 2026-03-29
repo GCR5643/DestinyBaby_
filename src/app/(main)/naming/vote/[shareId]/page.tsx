@@ -36,17 +36,8 @@ export default function VotePage({ params }: { params: { shareId: string } }) {
   const [showSuccessPopup, setShowSuccessPopup] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
 
-  // Already-voted state (from localStorage)
-  const [alreadyVoted, setAlreadyVoted] = useState(false);
-
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const stored = localStorage.getItem(`vote_${shareId}`);
-      if (stored === 'true') {
-        setAlreadyVoted(true);
-      }
-    }
-  }, [shareId]);
+  // 투표 완료 상태 (중복 투표 허용 — 새로고침 시 다시 투표 가능)
+  const [justVoted, setJustVoted] = useState(false);
 
   const sessionQuery = trpc.voting.getSession.useQuery(
     { shareCode: shareId },
@@ -55,11 +46,9 @@ export default function VotePage({ params }: { params: { shareId: string } }) {
 
   const submitVoteMutation = trpc.voting.submitVote.useMutation({
     onSuccess: () => {
-      if (typeof window !== 'undefined') {
-        localStorage.setItem(`vote_${shareId}`, 'true');
-      }
-      setAlreadyVoted(true);
+      setJustVoted(true);
       setShowSuccessPopup(true);
+      setSelectedNames([]);
       sessionQuery.refetch();
     },
     onError: (err) => {
@@ -113,7 +102,7 @@ export default function VotePage({ params }: { params: { shareId: string } }) {
   const { candidates, voteCounts, totalVotes, surname } = sessionQuery.data;
 
   // ── Already voted view ───────────────────────────────────────────────────────
-  if (alreadyVoted && !showSuccessPopup) {
+  if (justVoted && !showSuccessPopup) {
     return (
       <div className="min-h-screen bg-ivory pb-16">
         {/* Header */}
@@ -133,8 +122,14 @@ export default function VotePage({ params }: { params: { shareId: string } }) {
             className="bg-green-50 border border-green-200 rounded-2xl p-5 text-center"
           >
             <p className="text-2xl mb-1">✅</p>
-            <p className="text-green-700 font-semibold text-base">이미 투표했어요!</p>
+            <p className="text-green-700 font-semibold text-base">투표해주셨어요!</p>
             <p className="text-green-600 text-sm mt-1">소중한 한 표 감사해요 💕</p>
+            <button
+              onClick={() => setJustVoted(false)}
+              className="mt-3 text-sm text-primary-600 font-medium underline underline-offset-2"
+            >
+              다시 투표하기
+            </button>
           </motion.div>
 
           {/* Results preview */}

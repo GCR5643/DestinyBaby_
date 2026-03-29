@@ -181,24 +181,13 @@ export default function VoteCreatePage() {
             transition={{ delay: 0.08 }}
             className="bg-white rounded-2xl shadow-sm p-5 space-y-3"
           >
-            <p className="text-sm font-bold text-gray-700 mb-1">공유하기</p>
-
-            {/* 카카오 공유 */}
+            {/* 카톡 투표 초대하기 (카카오 우선, fallback 링크 복사) */}
             <button
               onClick={handleKakaoShare}
-              className="w-full flex items-center gap-3 bg-[#FEE500] hover:bg-[#F6DB00] text-[#3C1E1E] py-3.5 px-4 rounded-xl font-bold text-sm transition-colors"
+              className="w-full flex items-center justify-center gap-3 bg-[#FEE500] hover:bg-[#F6DB00] text-[#3C1E1E] py-3.5 px-4 rounded-xl font-bold text-sm transition-colors"
             >
               <MessageCircle className="w-5 h-5" />
-              카카오톡으로 공유하기
-            </button>
-
-            {/* 링크 복사 */}
-            <button
-              onClick={handleCopy}
-              className="w-full flex items-center gap-3 bg-gray-100 hover:bg-gray-200 text-gray-700 py-3.5 px-4 rounded-xl font-bold text-sm transition-colors"
-            >
-              <Link className="w-5 h-5" />
-              {copied ? '링크가 복사됐어요 ✓' : '링크 복사하기'}
+              카톡 투표 초대하기
             </button>
           </motion.div>
 

@@ -335,21 +335,16 @@ export default function VoteResultsPage() {
           transition={{ delay: 0.6 }}
           className="space-y-3"
         >
-          {/* Share buttons */}
-          <div className="flex gap-3">
-            <button
-              onClick={handleKakaoShare}
-              className="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-2xl bg-[#FEE500] text-[#191919] font-medium hover:brightness-95 transition-all text-sm"
-            >
-              💬 카카오로 공유
-            </button>
-            <button
-              onClick={handleCopyLink}
-              className="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-2xl border-2 border-secondary-400 text-secondary-700 font-medium hover:bg-secondary-50 transition-colors text-sm"
-            >
-              🔗 링크 복사
-            </button>
-          </div>
+          {/* 카톡 투표 초대하기 (카카오 우선, fallback 링크 복사) */}
+          <button
+            onClick={() => {
+              handleKakaoShare();
+              // 카카오 SDK 없으면 handleKakaoShare 내부에서 clipboard fallback 처리
+            }}
+            className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl bg-[#FEE500] text-[#191919] font-bold hover:brightness-95 transition-all text-sm"
+          >
+            💬 카톡 투표 초대하기
+          </button>
 
           <Link
             href="/naming/vote/create"
