@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Volume2, Star, X, Shuffle, RefreshCw, BookmarkCheck, Bookmark } from 'lucide-react';
+import { Volume2, Star, X, Shuffle, RefreshCw, BookmarkCheck, Bookmark, Plus, MessageCircle } from 'lucide-react';
 import type { SuggestedName } from '@/types';
 import { DemoBanner } from '@/components/naming/DemoBanner';
 import { cn } from '@/lib/utils';
@@ -105,13 +105,16 @@ interface NameCardProps {
   isCandidate: boolean;
   popularity: PopularityInfo | undefined;
   surname: string;
+  surnameHanja?: string;
   lackingElement?: string;
   onAddCandidate: (name: SuggestedName) => void;
   onVoice: (name: string) => void;
 }
 
-function NameCard({ name, index, isCandidate, popularity, surname, lackingElement, onAddCandidate, onVoice }: NameCardProps) {
+function NameCard({ name, index, isCandidate, popularity, surname, surnameHanja, lackingElement, onAddCandidate, onVoice }: NameCardProps) {
   const fullName = surname ? `${surname}${name.name}` : name.name;
+  // 성씨 한자가 있으면 한자 전체 이름 표시 (예: 金瑞俊), 없으면 한글 성씨만
+  const fullHanja = surnameHanja ? `${surnameHanja}${name.hanja}` : name.hanja;
 
   // 한자 글자별 의미 설명 생성
   const hanjaChars = (name.hanja || '').split('');
@@ -131,8 +134,10 @@ function NameCard({ name, index, isCandidate, popularity, surname, lackingElemen
           <div>
             <h2 className="text-3xl font-bold text-gray-800">{fullName}</h2>
             <p className="text-sm text-gray-400 mt-0.5">
-              {surname && <span className="text-gray-300">{surname} </span>}
-              {name.hanja}
+              {surnameHanja
+                ? fullHanja
+                : <>{surname && <span className="text-gray-300">{surname} </span>}{name.hanja}</>
+              }
             </p>
           </div>
           <div className="text-right">
@@ -145,10 +150,21 @@ function NameCard({ name, index, isCandidate, popularity, surname, lackingElemen
         </div>
 
         {/* 이름 뜻 설명 */}
-        <div className="bg-gray-50 rounded-xl p-3.5 mb-3">
-          <p className="text-sm text-gray-700 leading-relaxed">
-            <strong className="text-gray-900">{fullName}</strong>은(는) {name.reasonShort}
-          </p>
+        <div className="mb-3 space-y-2">
+          <div className="bg-amber-50 rounded-xl p-3 border border-amber-100">
+            <p className="text-xs font-semibold text-amber-600 mb-1">📖 뜻풀이</p>
+            <p className="text-sm text-gray-700 leading-relaxed">
+              {name.meaning ?? `${fullName}은(는) ${name.reasonShort}`}
+            </p>
+          </div>
+          {name.sajuInsight && (
+            <div className="bg-primary-50 rounded-xl p-3 border border-primary-100">
+              <p className="text-xs font-semibold text-primary-600 mb-1">✦ 성명학</p>
+              <p className="text-sm text-primary-800 leading-relaxed">
+                {name.sajuInsight}
+              </p>
+            </div>
+          )}
         </div>
 
         {/* 성명학 크리티컬 정보 */}
@@ -218,6 +234,7 @@ export default function NamingResultPage({ params }: { params: { id: string } })
   const [famousNameQuery, setFamousNameQuery] = useState<string | null>(null);
   const [showCelebration, setShowCelebration] = useState(false);
   const [surname, setSurname] = useState('');
+  const [surnameHanja, setSurnameHanja] = useState('');
   const [lackingElement, setLackingElement] = useState<string | undefined>();
 
   // sessionStorage에서 성씨 및 사주 정보 복원
@@ -227,6 +244,7 @@ export default function NamingResultPage({ params }: { params: { id: string } })
       if (payload) {
         const parsed = JSON.parse(payload);
         if (parsed.surname) setSurname(parsed.surname);
+        if (parsed.surnameHanja) setSurnameHanja(parsed.surnameHanja);
         // 부족 오행은 서버에서 계산하지만, 클라이언트에선 SuggestedName의 element로 추정
       }
     } catch { /* ignore */ }
@@ -415,46 +433,97 @@ export default function NamingResultPage({ params }: { params: { id: string } })
 
   const createVoteSession = trpc.naming.createVoteSession.useMutation();
 
-  const handleShare = useCallback(async () => {
-    if (candidates.length === 0) return;
+  // 투표 공유 팝업 상태
+  const [showVotePopup, setShowVotePopup] = useState(false);
+  const [customName, setCustomName] = useState('');
+  const [customDesc, setCustomDesc] = useState('');
+  const [voteCandidates, setVoteCandidates] = useState<{ name: string; hanja: string; description: string; sajuScore?: number; element?: string; isCustom: boolean }[]>([]);
+  const [voteUrl, setVoteUrl] = useState('');
+  const [isCreatingVote, setIsCreatingVote] = useState(false);
 
+  const openVotePopup = useCallback(() => {
+    // 기존 후보를 투표 후보로 복사
+    setVoteCandidates(candidates.map(c => ({
+      name: c.name,
+      hanja: c.hanja,
+      description: c.reasonShort,
+      sajuScore: c.sajuScore,
+      element: c.element,
+      isCustom: false,
+    })));
+    setVoteUrl('');
+    setCustomName('');
+    setCustomDesc('');
+    setShowVotePopup(true);
+  }, [candidates]);
+
+  const addCustomCandidate = useCallback(() => {
+    if (!customName.trim()) return;
+    if (voteCandidates.length >= 20) {
+      showToast('후보는 최대 20개까지 추가할 수 있어요');
+      return;
+    }
+    if (voteCandidates.some(c => c.name === customName.trim())) {
+      showToast('이미 같은 이름이 있어요');
+      return;
+    }
+    setVoteCandidates(prev => [...prev, {
+      name: customName.trim(),
+      hanja: '',
+      description: customDesc.trim(),
+      isCustom: true,
+    }]);
+    setCustomName('');
+    setCustomDesc('');
+  }, [customName, customDesc, voteCandidates]);
+
+  const removeVoteCandidate = useCallback((name: string) => {
+    setVoteCandidates(prev => prev.filter(c => c.name !== name));
+  }, []);
+
+  const createVoteLink = useCallback(async () => {
+    if (voteCandidates.length === 0) return;
+    setIsCreatingVote(true);
     try {
       const result = await createVoteSession.mutateAsync({
-        candidates: candidates.map(c => ({
+        candidates: voteCandidates.map(c => ({
           name: c.name,
           hanja: c.hanja,
-          reasonShort: c.reasonShort,
-          sajuScore: c.sajuScore,
-          element: c.element,
+          reasonShort: c.description,
+          sajuScore: c.sajuScore ?? 0,
+          element: c.element ?? 'earth',
         })),
       });
-
-      const voteUrl = `${window.location.origin}/naming/vote/${result.shareCode}`;
-
-      // 카카오톡 공유 시도
-      if (window.Kakao?.isInitialized?.()) {
-        window.Kakao.Share.sendDefault({
-          objectType: 'feed',
-          content: {
-            title: '우리 아이 이름, 어떤 게 좋을까요? 🍼',
-            description: `${candidates.length}개의 후보 이름에 투표해주세요!`,
-            imageUrl: `${window.location.origin}/og-vote.png`,
-            link: { mobileWebUrl: voteUrl, webUrl: voteUrl },
-          },
-          buttons: [
-            { title: '투표하기', link: { mobileWebUrl: voteUrl, webUrl: voteUrl } },
-          ],
-        });
-      } else {
-        // 카카오 SDK 없으면 클립보드 복사
-        await navigator.clipboard.writeText(voteUrl);
-        showToast('투표 링크가 복사됐어요! 카톡에 붙여넣기 해주세요 🎉');
-      }
-    } catch (e) {
-      console.warn('[share] 투표 세션 생성 실패:', e);
-      showToast('공유 실패. 다시 시도해주세요.');
+      const url = `${window.location.origin}/naming/vote/${result.shareCode}`;
+      setVoteUrl(url);
+    } catch {
+      showToast('투표 링크 생성에 실패했어요. 다시 시도해주세요.');
+    } finally {
+      setIsCreatingVote(false);
     }
-  }, [candidates, createVoteSession]);
+  }, [voteCandidates, createVoteSession]);
+
+  const handleKakaoVoteShare = useCallback(() => {
+    if (!voteUrl) return;
+    if (window.Kakao?.isInitialized?.()) {
+      window.Kakao.Share.sendDefault({
+        objectType: 'feed',
+        content: {
+          title: '우리 아이 이름, 어떤 게 좋을까요? 👶',
+          description: `${voteCandidates.length}개의 후보 이름에 투표해주세요!`,
+          imageUrl: `${window.location.origin}/og-vote.png`,
+          link: { mobileWebUrl: voteUrl, webUrl: voteUrl },
+        },
+        buttons: [
+          { title: '투표하러 가기', link: { mobileWebUrl: voteUrl, webUrl: voteUrl } },
+        ],
+      });
+    } else {
+      navigator.clipboard.writeText(voteUrl).then(() => {
+        showToast('투표 링크가 복사됐어요! 카톡에 붙여넣기 해주세요 🎉');
+      });
+    }
+  }, [voteUrl, voteCandidates]);
 
   const filterLabels: { key: LengthFilter; label: string }[] = [
     { key: '2', label: '두글자 (기본)' },
@@ -536,6 +605,7 @@ export default function NamingResultPage({ params }: { params: { id: string } })
                 isCandidate={candidates.some(c => c.name === name.name)}
                 popularity={popularityMap[name.name]}
                 surname={surname}
+                surnameHanja={surnameHanja}
                 lackingElement={lackingElement}
                 onAddCandidate={handleAddCandidate}
                 onVoice={handleVoice}
@@ -690,7 +760,7 @@ export default function NamingResultPage({ params }: { params: { id: string } })
           )}
 
           <button
-            onClick={handleShare}
+            onClick={openVotePopup}
             disabled={candidates.length === 0}
             className={cn(
               'w-full py-3 rounded-xl font-medium text-sm transition-colors',
@@ -726,6 +796,126 @@ export default function NamingResultPage({ params }: { params: { id: string } })
           </button>
         </div>
       </div>
+
+      {/* Vote Share Popup */}
+      <AnimatePresence>
+        {showVotePopup && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-black/50 z-40"
+              onClick={() => setShowVotePopup(false)}
+            />
+            <motion.div
+              initial={{ opacity: 0, y: 60 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 60 }}
+              className="fixed bottom-0 left-0 right-0 bg-white rounded-t-3xl z-50 p-6 max-h-[85vh] overflow-y-auto"
+            >
+              <div className="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-4" />
+
+              {!voteUrl ? (
+                <>
+                  <h2 className="text-lg font-black text-gray-800 mb-1">🗳️ 투표 링크 만들기</h2>
+                  <p className="text-sm text-gray-400 mb-4">가족·친구에게 공유해서 이름 투표를 받아보세요</p>
+
+                  {/* 현재 후보 목록 */}
+                  <div className="space-y-2 mb-4">
+                    {voteCandidates.map(c => (
+                      <div key={c.name} className="flex items-center gap-3 bg-gray-50 rounded-xl px-4 py-3">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold text-gray-800">{surname}{c.name}</span>
+                            {c.hanja && <span className="text-xs text-gray-400">{c.hanja}</span>}
+                            {c.isCustom && <span className="text-[10px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full">직접 추가</span>}
+                          </div>
+                          {c.description && <p className="text-xs text-gray-500 mt-0.5 truncate">{c.description}</p>}
+                        </div>
+                        <button onClick={() => removeVoteCandidate(c.name)} className="text-gray-300 hover:text-red-400 transition-colors">
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* 직접 이름 추가 */}
+                  <div className="bg-primary-50 rounded-2xl p-4 mb-5">
+                    <p className="text-sm font-bold text-gray-700 mb-3">✏️ 이름 직접 추가하기</p>
+                    <div className="flex gap-2 mb-2">
+                      <input
+                        type="text"
+                        value={customName}
+                        onChange={e => setCustomName(e.target.value)}
+                        placeholder="이름 입력 (예: 서윤)"
+                        className="flex-1 bg-white border border-gray-200 rounded-xl px-3 py-2.5 text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-300"
+                        maxLength={5}
+                      />
+                      <button
+                        onClick={addCustomCandidate}
+                        disabled={!customName.trim()}
+                        className="bg-primary-500 text-white w-10 h-10 rounded-xl flex items-center justify-center disabled:opacity-40 hover:bg-primary-600 transition-colors flex-shrink-0"
+                      >
+                        <Plus className="w-5 h-5" />
+                      </button>
+                    </div>
+                    <input
+                      type="text"
+                      value={customDesc}
+                      onChange={e => setCustomDesc(e.target.value)}
+                      placeholder="이름에 대한 설명 (선택)"
+                      className="w-full bg-white border border-gray-200 rounded-xl px-3 py-2.5 text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-300"
+                      maxLength={50}
+                    />
+                  </div>
+
+                  {/* 투표 링크 만들기 버튼 */}
+                  <button
+                    onClick={createVoteLink}
+                    disabled={voteCandidates.length === 0 || isCreatingVote}
+                    className="w-full py-3.5 rounded-2xl bg-secondary-400 text-white font-bold text-sm hover:bg-secondary-500 transition-colors disabled:opacity-40 flex items-center justify-center gap-2"
+                  >
+                    {isCreatingVote ? (
+                      <><motion.span animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1, ease: 'linear' }} className="inline-block">⏳</motion.span> 링크 만드는 중...</>
+                    ) : (
+                      <>🔗 투표 링크 만들기 ({voteCandidates.length}개 후보)</>
+                    )}
+                  </button>
+                </>
+              ) : (
+                <>
+                  <h2 className="text-lg font-black text-gray-800 mb-1">✅ 투표 링크가 만들어졌어요!</h2>
+                  <p className="text-sm text-gray-400 mb-5">지금 바로 공유하면 더 많은 사람이 함께해요 💕</p>
+
+                  {/* 투표 링크 표시 */}
+                  <div className="bg-gray-50 rounded-xl p-3 mb-4 flex items-center gap-2">
+                    <p className="flex-1 text-xs text-gray-600 truncate font-mono">{voteUrl}</p>
+                    <button
+                      onClick={() => { navigator.clipboard.writeText(voteUrl); showToast('링크가 복사됐어요 ✓'); }}
+                      className="text-xs bg-white border border-gray-200 px-3 py-1.5 rounded-lg text-gray-600 hover:bg-gray-100 flex-shrink-0"
+                    >
+                      복사
+                    </button>
+                  </div>
+
+                  {/* 카톡 투표 초대하기 */}
+                  <button
+                    onClick={handleKakaoVoteShare}
+                    className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl bg-[#FEE500] text-[#3C1E1E] font-bold text-sm hover:brightness-95 transition-all mb-3"
+                  >
+                    <MessageCircle className="w-5 h-5" />
+                    카톡 투표 초대하기
+                  </button>
+
+                  <button
+                    onClick={() => { setShowVotePopup(false); router.push(`/naming/vote/results/${voteUrl.split('/').pop()}`); }}
+                    className="w-full py-3 rounded-2xl border-2 border-gray-200 text-gray-600 font-medium text-sm hover:bg-gray-50 transition-colors"
+                  >
+                    투표 결과 보기 →
+                  </button>
+                </>
+              )}
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
 
       {/* Final Name Modal */}
       <AnimatePresence>
