@@ -1,6 +1,7 @@
 'use client';
 
-import { useParams } from 'next/navigation';
+import { useState } from 'react';
+import { useParams, useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { trpc } from '@/lib/trpc/client';
 import Link from 'next/link';
@@ -28,12 +29,23 @@ function formatDate(iso: string): string {
 
 export default function VoteResultsPage() {
   const params = useParams();
+  const router = useRouter();
   const shareCode = params.shareId as string;
 
-  const { data, isLoading } = trpc.voting.getResults.useQuery(
+  const [showFinalSelect, setShowFinalSelect] = useState(false);
+  const [showCloseConfirm, setShowCloseConfirm] = useState(false);
+
+  const { data, isLoading, refetch } = trpc.voting.getResults.useQuery(
     { shareCode },
     { refetchOnWindowFocus: false }
   );
+
+  const closeSessionMutation = trpc.voting.closeSession.useMutation({
+    onSuccess: () => {
+      refetch();
+      setShowCloseConfirm(false);
+    },
+  });
 
   const handleCopyLink = () => {
     const url = `${window.location.origin}/naming/vote/${shareCode}`;
@@ -328,6 +340,21 @@ export default function VoteResultsPage() {
           </AnimatePresence>
         </motion.div>
 
+        {/* 이름 최종 선택하기 */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.55 }}
+        >
+          <button
+            onClick={() => setShowFinalSelect(true)}
+            className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-primary-500 to-secondary-400 text-white font-bold text-sm shadow-lg hover:opacity-90 transition-opacity"
+          >
+            ✨ 이름 최종 선택하기
+          </button>
+          <p className="text-xs text-gray-400 text-center mt-1.5">이름을 선택하면 작명 상세 리포트를 볼 수 있어요</p>
+        </motion.div>
+
         {/* Action buttons */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -335,30 +362,30 @@ export default function VoteResultsPage() {
           transition={{ delay: 0.6 }}
           className="space-y-3"
         >
-          {/* 카톡 투표 초대하기 (카카오 우선, fallback 링크 복사) */}
-          <button
-            onClick={() => {
-              handleKakaoShare();
-              // 카카오 SDK 없으면 handleKakaoShare 내부에서 clipboard fallback 처리
-            }}
-            className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl bg-[#FEE500] text-[#191919] font-bold hover:brightness-95 transition-all text-sm"
-          >
-            💬 카톡 투표 초대하기
-          </button>
+          {!data?.isClosed && (
+            <button
+              onClick={handleKakaoShare}
+              className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl bg-[#FEE500] text-[#191919] font-bold hover:brightness-95 transition-all text-sm"
+            >
+              💬 카톡 투표 초대하기
+            </button>
+          )}
 
-          <Link
-            href="/naming/vote/create"
-            className="block w-full text-center py-3.5 rounded-2xl bg-primary-500 text-white font-medium hover:bg-primary-600 transition-colors text-sm"
-          >
-            ✨ 새 투표 만들기
-          </Link>
+          {!data?.isClosed && (
+            <button
+              onClick={() => setShowCloseConfirm(true)}
+              className="w-full py-3 rounded-2xl border-2 border-red-200 text-red-500 font-medium hover:bg-red-50 transition-colors text-sm"
+            >
+              🔒 투표 마감하기
+            </button>
+          )}
 
-          <Link
-            href={`/naming/vote/${shareCode}`}
-            className="block w-full text-center py-3 rounded-2xl border-2 border-gray-200 text-gray-600 font-medium hover:bg-gray-50 transition-colors text-sm"
-          >
-            ← 투표에 참여하러 가기
-          </Link>
+          {data?.isClosed && (
+            <div className="bg-gray-50 border border-gray-200 rounded-2xl p-4 text-center">
+              <p className="text-sm font-medium text-gray-600">🔒 이 투표는 마감되었습니다</p>
+              <p className="text-xs text-gray-400 mt-1">더 이상 새로운 투표를 받지 않아요</p>
+            </div>
+          )}
 
           <Link
             href="/"
@@ -368,6 +395,90 @@ export default function VoteResultsPage() {
           </Link>
         </motion.div>
       </div>
+
+      {/* 최종 선택 모달 */}
+      <AnimatePresence>
+        {showFinalSelect && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-black/50 z-40"
+              onClick={() => setShowFinalSelect(false)}
+            />
+            <motion.div
+              initial={{ opacity: 0, y: 60 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 60 }}
+              className="fixed bottom-0 left-0 right-0 bg-white rounded-t-3xl z-50 p-6 max-h-[80vh] overflow-y-auto"
+            >
+              <div className="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-4" />
+              <h2 className="text-lg font-black text-gray-800 mb-1">✨ 최종 이름을 선택해주세요</h2>
+              <p className="text-sm text-gray-400 mb-4">선택한 이름의 작명 상세 리포트를 확인할 수 있어요</p>
+              <div className="space-y-3">
+                {ranking.map((item) => (
+                  <button
+                    key={item.name}
+                    onClick={() => {
+                      setShowFinalSelect(false);
+                      const nameParam = encodeURIComponent(item.name);
+                      const hanjaParam = encodeURIComponent(item.hanja || '');
+                      const surnameParam = encodeURIComponent(surname);
+                      router.push(`/naming/review?name=${surnameParam}${nameParam}&hanja=${hanjaParam}`);
+                    }}
+                    className="w-full flex items-center gap-4 p-4 rounded-2xl border-2 border-gray-100 hover:border-primary-300 hover:bg-primary-50 transition-all text-left"
+                  >
+                    <div className="text-3xl font-black text-primary-700">{surname}{item.name}</div>
+                    <div className="flex-1 min-w-0">
+                      {item.hanja && <div className="text-gray-400 text-sm">{item.hanja}</div>}
+                      {item.description && <div className="text-xs text-gray-500 mt-0.5 truncate">{item.description}</div>}
+                    </div>
+                    <div className="flex flex-col items-end flex-shrink-0">
+                      <div className="text-primary-600 font-bold">{item.votes}표</div>
+                      <div className="text-xs text-gray-400">리포트 보기 →</div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
+      {/* 투표 마감 확인 모달 */}
+      <AnimatePresence>
+        {showCloseConfirm && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-black/50 z-40"
+              onClick={() => setShowCloseConfirm(false)}
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }}
+              className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white rounded-3xl z-50 p-6 w-[90vw] max-w-sm shadow-2xl"
+            >
+              <div className="text-center">
+                <p className="text-4xl mb-3">🔒</p>
+                <h3 className="text-lg font-bold text-gray-800 mb-2">투표를 마감할까요?</h3>
+                <p className="text-sm text-gray-500 mb-5">마감하면 더 이상 새로운 투표를 받을 수 없어요.<br />기존 결과는 그대로 유지됩니다.</p>
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => setShowCloseConfirm(false)}
+                    className="flex-1 py-3 rounded-xl border-2 border-gray-200 text-gray-600 font-medium text-sm hover:bg-gray-50"
+                  >
+                    취소
+                  </button>
+                  <button
+                    onClick={() => closeSessionMutation.mutate({ shareCode })}
+                    disabled={closeSessionMutation.isPending}
+                    className="flex-1 py-3 rounded-xl bg-red-500 text-white font-bold text-sm hover:bg-red-600 disabled:opacity-50"
+                  >
+                    {closeSessionMutation.isPending ? '마감 중...' : '마감하기'}
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

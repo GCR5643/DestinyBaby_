@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import Link from 'next/link';
 import { trpc } from '@/lib/trpc/client';
 
 interface Candidate {
@@ -92,9 +93,41 @@ export default function VotePage({ params }: { params: { shareId: string } }) {
       <div className="min-h-screen bg-ivory flex items-center justify-center px-4">
         <div className="text-center">
           <p className="text-5xl mb-4">😢</p>
-          <h1 className="text-xl font-bold text-gray-800 mb-2">유효하지 않은 투표 링크입니다</h1>
+          <h1 className="text-xl font-bold text-gray-800 mb-2">투표 링크를 찾을 수 없어요</h1>
           <p className="text-sm text-gray-500">링크가 만료됐거나 잘못된 주소예요.</p>
         </div>
+      </div>
+    );
+  }
+
+  // 마감된 투표 접근 시
+  if (sessionQuery.data.isClosed) {
+    return (
+      <div className="min-h-screen bg-ivory flex items-center justify-center px-4">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="bg-white rounded-3xl shadow-2xl p-8 max-w-sm w-full text-center"
+        >
+          <p className="text-5xl mb-4">🔒</p>
+          <h1 className="text-xl font-bold text-gray-800 mb-2">이 이름 투표는 마무리되었어요</h1>
+          <p className="text-sm text-gray-500 mb-6">
+            투표가 마감되어 더 이상 참여할 수 없어요.<br />
+            결과가 궁금하다면 아래에서 확인해보세요!
+          </p>
+          <Link
+            href={`/naming/vote/results/${shareId}`}
+            className="block w-full py-3.5 rounded-2xl bg-primary-500 text-white font-bold text-sm mb-3 hover:bg-primary-600 transition-colors"
+          >
+            투표 결과 보기
+          </Link>
+          <Link
+            href="/"
+            className="block w-full py-3 rounded-2xl border-2 border-gray-200 text-gray-600 font-medium text-sm hover:bg-gray-50 transition-colors"
+          >
+            운명의 아이 홈으로 가기 ✨
+          </Link>
+        </motion.div>
       </div>
     );
   }

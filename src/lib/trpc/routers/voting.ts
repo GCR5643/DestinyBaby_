@@ -102,6 +102,7 @@ export const votingRouter = createTRPCRouter({
         totalVotes,
         createdAt: session.created_at,
         expiresAt: session.expires_at,
+        isClosed: session.expires_at ? new Date(session.expires_at) < new Date() : false,
       };
     }),
 
@@ -222,6 +223,8 @@ export const votingRouter = createTRPCRouter({
         }))
         .sort((a, b) => b.votes - a.votes);
 
+      const isClosed = session.expires_at ? new Date(session.expires_at) < new Date() : false;
+
       return {
         sessionId: session.id,
         title: session.title || '우리 아이 이름 투표',
@@ -231,6 +234,7 @@ export const votingRouter = createTRPCRouter({
         totalVoters: (submissions ?? []).length,
         totalVotes: Object.values(nameResults).reduce((sum, r) => sum + r.count, 0),
         createdAt: session.created_at,
+        isClosed,
       };
     }),
 
@@ -269,5 +273,18 @@ export const votingRouter = createTRPCRouter({
       }
 
       return result;
+    }),
+
+  // 투표 마감하기
+  closeSession: publicProcedure
+    .input(z.object({ shareCode: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      const { error } = await ctx.supabase
+        .from('name_vote_sessions')
+        .update({ expires_at: new Date().toISOString() })
+        .eq('share_code', input.shareCode);
+
+      if (error) throw new Error(`투표 마감 실패: ${error.message}`);
+      return { success: true };
     }),
 });
