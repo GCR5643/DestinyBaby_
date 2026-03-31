@@ -6,9 +6,11 @@ const SIGNUP_BONUS_FRAGMENTS = 10;
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get('code');
+  const token_hash = searchParams.get('token_hash');
+  const type = searchParams.get('type') as 'magiclink' | 'email' | undefined;
   const next = searchParams.get('next') ?? '/';
 
-  if (code) {
+  if (code || (token_hash && type)) {
     // 리다이렉트 응답을 먼저 생성하고, 세션 쿠키를 이 응답에 직접 설정
     const redirectUrl = new URL(next, origin);
     const response = NextResponse.redirect(redirectUrl);
@@ -30,7 +32,11 @@ export async function GET(request: NextRequest) {
       }
     );
 
-    const { error } = await supabase.auth.exchangeCodeForSession(code);
+    // OAuth code exchange 또는 Magic Link OTP 검증
+    const { error } = code
+      ? await supabase.auth.exchangeCodeForSession(code)
+      : await supabase.auth.verifyOtp({ token_hash: token_hash!, type: type! });
+
     if (!error) {
       // 신규 회원가입 보너스: 조각 10개 지급
       try {

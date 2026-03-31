@@ -2,23 +2,37 @@
 
 export const dynamic = 'force-dynamic';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
+import { useUserStore } from '@/stores/userStore';
 import { Mail, ArrowLeft, AlertCircle, Check } from 'lucide-react';
 
 type LoadingProvider = 'kakao' | 'google' | 'email' | null;
 
+const ERROR_MESSAGES: Record<string, string> = {
+  'auth-error': '인증에 실패했습니다. 다시 시도해주세요.',
+};
+
 export default function LoginPage() {
   const [loadingProvider, setLoadingProvider] = useState<LoadingProvider>(null);
-  const [error, setError] = useState('');
   const [email, setEmail] = useState('');
   const [magicLinkSent, setMagicLinkSent] = useState(false);
   const router = useRouter();
   const searchParams = useSearchParams();
   const redirectTo = searchParams.get('redirect') || '/';
+  const urlError = searchParams.get('error');
+  const [error, setError] = useState(urlError ? (ERROR_MESSAGES[urlError] || '로그인 중 오류가 발생했습니다.') : '');
+
+  // 이미 로그인된 유저는 리다이렉트
+  const { user, isAuthReady } = useUserStore();
+  useEffect(() => {
+    if (isAuthReady && user) {
+      router.replace(redirectTo);
+    }
+  }, [isAuthReady, user, redirectTo, router]);
 
   const handleOAuth = async (provider: 'google' | 'kakao') => {
     setLoadingProvider(provider);
