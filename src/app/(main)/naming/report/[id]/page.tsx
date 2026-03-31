@@ -468,6 +468,39 @@ export default function NamingReportPage({ params }: { params: { id: string } })
           </div>
         </motion.div>
 
+        {/* Section: 사주 원국 해석 */}
+        {report.sajuNarrative && (
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }} className="bg-white rounded-2xl p-6 shadow-md">
+            <h2 className="font-bold text-gray-800 mb-1">🔮 아이의 사주 원국 해석</h2>
+            <p className="text-xs text-gray-400 mb-4">태어난 순간의 천지 기운으로 읽는 아이의 타고난 기질</p>
+            <div className="bg-gradient-to-br from-indigo-50 to-purple-50 rounded-xl p-4">
+              <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-line">{report.sajuNarrative}</p>
+            </div>
+          </motion.div>
+        )}
+
+        {/* Section: 용신 분석 */}
+        {report.yongshinAnalysis && (
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.07 }} className="bg-white rounded-2xl p-6 shadow-md">
+            <h2 className="font-bold text-gray-800 mb-1">⚖️ 용신(用神) 분석</h2>
+            <p className="text-xs text-gray-400 mb-4">아이의 사주에 가장 필요한 기운과 그 의미</p>
+            <div className="bg-amber-50 border-l-4 border-amber-400 rounded-r-xl p-4">
+              <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-line">{report.yongshinAnalysis}</p>
+            </div>
+          </motion.div>
+        )}
+
+        {/* Section: 이름-사주 연결 */}
+        {report.nameEnergyStory && (
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.09 }}
+            className="bg-gradient-to-br from-primary-50 to-blue-50 rounded-2xl p-6 border border-primary-100"
+          >
+            <h2 className="font-bold text-gray-800 mb-1">🌊 이름이 사주를 완성하는 원리</h2>
+            <p className="text-xs text-gray-400 mb-4">"{name}" 이라는 이름이 아이의 사주에 어떤 기운을 더해주는지</p>
+            <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-line">{report.nameEnergyStory}</p>
+          </motion.div>
+        )}
+
         {/* Section 2: 자원오행 분석 */}
         {report.jawonOheng && (
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }} className="bg-white rounded-2xl p-6 shadow-md">
@@ -567,28 +600,52 @@ export default function NamingReportPage({ params }: { params: { id: string } })
           </motion.div>
         )}
 
-        {/* Section 4: 축복 메시지 */}
+        {/* Section 4: 축복 편지 */}
         <motion.div
           initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}
           className="rounded-2xl p-6 border border-rose-100 bg-gradient-to-br from-rose-50 to-primary-50"
         >
-          <h2 className="font-bold text-gray-800 mb-3">✨ 아이에게 보내는 축복 메시지</h2>
-          <p className="text-gray-700 text-sm leading-relaxed">{blessingMessage}</p>
+          <h2 className="font-bold text-gray-800 mb-3">✨ {name}에게 보내는 축복 편지</h2>
+          <p className="text-gray-700 text-sm leading-relaxed whitespace-pre-line">
+            {report.blessingLetter ?? blessingMessage}
+          </p>
         </motion.div>
 
-        {/* Section 5: 이름 한자 풀이 */}
+        {/* Section 5: 이름 한자 심층 분석 */}
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="bg-white rounded-2xl p-6 shadow-md">
-          <h2 className="font-bold text-gray-800 mb-4">📖 이름 한자 풀이</h2>
-          <div className="space-y-3">
-            {report.meaningBreakdown.map((item, i) => (
-              <div key={i} className="flex items-start gap-4 p-3 bg-gray-50 rounded-xl">
-                <div className="text-center min-w-12">
-                  <div className="text-2xl font-bold text-primary-600">{item.hanja}</div>
-                  <div className="text-base text-gray-700">{item.char}</div>
+          <h2 className="font-bold text-gray-800 mb-1">📖 이름 한자 심층 분석</h2>
+          <p className="text-xs text-gray-400 mb-4">각 글자에 담긴 의미, 유래, 그리고 문화적 배경</p>
+          <div className="space-y-4">
+            {(report.characterDeepDive ?? report.meaningBreakdown).map((item, i) => {
+              const deep = report.characterDeepDive?.[i];
+              return (
+                <div key={i} className="border border-gray-100 rounded-2xl overflow-hidden">
+                  <div className="flex items-start gap-4 p-4 bg-gray-50">
+                    <div className="text-center min-w-14">
+                      <div className="text-3xl font-bold text-primary-600">{item.hanja}</div>
+                      <div className="text-base text-gray-700 mt-1">{item.char}</div>
+                    </div>
+                    <p className="text-sm text-gray-700 pt-1 leading-relaxed">{item.meaning}</p>
+                  </div>
+                  {deep && (
+                    <div className="p-4 space-y-3">
+                      {deep.etymology && (
+                        <div>
+                          <div className="text-xs font-bold text-amber-600 mb-1">📜 한자의 유래</div>
+                          <p className="text-xs text-gray-600 leading-relaxed">{deep.etymology}</p>
+                        </div>
+                      )}
+                      {deep.culturalNote && (
+                        <div>
+                          <div className="text-xs font-bold text-indigo-600 mb-1">🏛️ 문화적 의미</div>
+                          <p className="text-xs text-gray-600 leading-relaxed">{deep.culturalNote}</p>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
-                <p className="text-sm text-gray-600 pt-1">{item.meaning}</p>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </motion.div>
 
@@ -647,6 +704,31 @@ export default function NamingReportPage({ params }: { params: { id: string } })
               </div>
             </div>
             <p className="text-xs text-gray-600 leading-relaxed bg-primary-50 rounded-xl p-3">{report.eumyangAnalysis.description}</p>
+          </motion.div>
+        )}
+
+        {/* Section: 부모 궁합 상세 해석 */}
+        {report.parentCompatibilityNarrative && (
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.31 }} className="bg-white rounded-2xl p-6 shadow-md">
+            <h2 className="font-bold text-gray-800 mb-1">👨‍👩‍👧 부모-아이 궁합 상세 해석</h2>
+            <p className="text-xs text-gray-400 mb-4">엄마·아빠 각각의 오행이 아이와 어떤 관계를 이루는지</p>
+            <div className="flex gap-3 mb-4">
+              <div className="flex-1 bg-pink-50 rounded-xl p-3 text-center">
+                <div className="text-2xl font-black text-pink-500">{report.parentCompatibility.mom}</div>
+                <div className="text-xs text-gray-500 mt-1">엄마 궁합</div>
+              </div>
+              <div className="flex-1 bg-blue-50 rounded-xl p-3 text-center">
+                <div className="text-2xl font-black text-blue-500">{report.parentCompatibility.dad}</div>
+                <div className="text-xs text-gray-500 mt-1">아빠 궁합</div>
+              </div>
+              <div className="flex-1 bg-purple-50 rounded-xl p-3 text-center">
+                <div className="text-2xl font-black text-purple-500">{report.parentCompatibility.combined}</div>
+                <div className="text-xs text-gray-500 mt-1">종합</div>
+              </div>
+            </div>
+            <div className="bg-gray-50 rounded-xl p-4">
+              <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-line">{report.parentCompatibilityNarrative}</p>
+            </div>
           </motion.div>
         )}
 
@@ -766,17 +848,18 @@ export default function NamingReportPage({ params }: { params: { id: string } })
           </div>
         </motion.div>
 
-        {/* 인생 이정표 */}
+        {/* 인생 이정표 (개인화) */}
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.38 }} className="bg-white rounded-2xl p-6 shadow-md">
-          <h2 className="font-bold text-gray-800 mb-4">🌟 인생 이정표</h2>
+          <h2 className="font-bold text-gray-800 mb-1">🌟 {name}의 인생 이정표</h2>
+          <p className="text-xs text-gray-400 mb-4">사주 기반으로 예측한 시기별 성장 가이드</p>
           <div className="space-y-3">
-            {milestones.map((m, i) => (
+            {(report.personalizedMilestones ?? milestones.map(m => ({ age: m.age, icon: m.icon, title: m.title, description: m.desc }))).map((m, i) => (
               <div key={i} className="flex gap-4 p-4 bg-gray-50 rounded-2xl">
                 <div className="text-2xl">{m.icon}</div>
                 <div className="flex-1">
                   <div className="text-xs text-primary-500 font-semibold mb-0.5">{m.age}</div>
                   <div className="font-bold text-gray-800 text-sm mb-1">{m.title}</div>
-                  <p className="text-xs text-gray-500 leading-relaxed">{m.desc}</p>
+                  <p className="text-xs text-gray-500 leading-relaxed">{m.description}</p>
                 </div>
               </div>
             ))}

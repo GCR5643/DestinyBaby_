@@ -102,9 +102,39 @@ function isChineseStyleName(name: string): boolean {
   return false;
 }
 
+// LLM이 성씨를 name/hanja에 포함했을 경우 자동 제거
+function stripSurnameIfPresent(
+  raw: Array<{ name: string; hanja: string; reasonShort: string; meaning?: string; sajuInsight?: string; sajuScore?: number }>,
+  surname: string,
+  surnameHanja?: string,
+): typeof raw {
+  if (!surname) return raw;
+  return raw.map(n => {
+    let name = n.name;
+    let hanja = n.hanja;
+    let meaning = n.meaning;
+    // 한글 이름에서 성씨 제거 (앞에 성씨가 붙어있는 경우)
+    if (name.startsWith(surname) && name.length > surname.length) {
+      name = name.slice(surname.length);
+    }
+    // 한자에서 성씨 한자 제거
+    if (surnameHanja && hanja.startsWith(surnameHanja) && hanja.length > surnameHanja.length) {
+      hanja = hanja.slice(surnameHanja.length);
+    }
+    // meaning에서 성씨+이름 조합(이중 성씨) 제거 — "이이예윤" → "이예윤"
+    if (meaning && surname) {
+      const doubled = `${surname}${surname}`;
+      if (meaning.startsWith(doubled)) {
+        meaning = meaning.slice(surname.length);
+      }
+    }
+    return { ...n, name, hanja, meaning };
+  });
+}
+
 // LLM이 반환한 이름 검증: 한국식 필터 + 한자 유효성 + 획수 교정
 function validateAndCorrectNames(
-  raw: Array<{ name: string; hanja: string; reasonShort: string; sajuScore?: number }>,
+  raw: Array<{ name: string; hanja: string; reasonShort: string; meaning?: string; sajuInsight?: string; sajuScore?: number }>,
   element: Element,
 ): SuggestedName[] {
   const valid: SuggestedName[] = [];
@@ -130,6 +160,8 @@ function validateAndCorrectNames(
         name: n.name,
         hanja: n.hanja,
         reasonShort: n.reasonShort,
+        meaning: n.meaning,
+        sajuInsight: n.sajuInsight,
         sajuScore: n.sajuScore ?? Math.round(75 + Math.random() * 20),
         element,
       });
@@ -165,6 +197,8 @@ function validateAndCorrectNames(
       name: n.name,
       hanja: n.hanja,
       reasonShort: n.reasonShort,
+      meaning: n.meaning,
+      sajuInsight: n.sajuInsight,
       sajuScore: n.sajuScore ?? Math.round(75 + Math.random() * 20),
       element,
     });
@@ -238,13 +272,18 @@ ${TONE_SYSTEM}`;
   const genderKey = input.gender === 'male' ? 'male' : input.gender === 'female' ? 'female' : 'unknown';
   const genderExamples = trend.examples[genderKey];
 
+  const nameLengthInstruction = input.nameLength === '1'
+    ? `## 이름 글자 수: 반드시 외자(1글자)만\n- 성씨를 제외한 이름 부분이 반드시 1글자(외자)여야 합니다.\n- 예: 온, 율, 빛, 결, 찬, 솔, 도, 현, 란, 희, 준, 민, 서, 윤, 은, 지, 우, 아\n- 2글자 이름은 절대 생성하지 마세요.`
+    : `## 이름 글자 수: 두글자(2글자) 기본\n- 성씨를 제외한 이름 부분이 2글자여야 합니다. 외자(1글자)는 1개 이하로 포함 가능합니다.`;
+
   const userPrompt = `다음 사주 조건에 맞는 한국식 아기 이름 7개를 추천해주세요.
 
 ${trend.directive}
 
+${nameLengthInstruction}
+
 ## 최우선 규칙: 한국식 이름만
 - 아래 레퍼런스와 비슷한 음절 감각의 이름: ${genderExamples}
-- 이름은 2글자(두 음절)를 기본으로 하되, 외자(1글자)도 1~2개 포함 가능
 - 중국식/일본식 이름 절대 금지
 
 ## 사주 분석 결과 (${sajuBasis} 기반)
@@ -257,6 +296,12 @@ ${input.hangryeolChar ? `- 항렬 글자: ${input.hangryeolChar}` : ''}
 ${input.siblingNames?.length ? `- 형제자매 이름: ${input.siblingNames.join(', ')}` : ''}
 ${input.preferences?.preferredElements?.length ? `- 선호 오행: ${input.preferences.preferredElements.map(e => ELEMENT_KO[e]).join(', ')}` : ''}
 ${input.preferences?.avoidChars?.length ? `- 피할 글자: ${input.preferences.avoidChars.join(', ')}` : ''}
+
+## ⚠️ JSON 필드 규칙 (반드시 준수)
+- **name 필드**: 성씨 제외, 이름 부분만 (예: 성씨가 "이"이면 → name: "예윤", ❌ name: "이예윤")
+- **hanja 필드**: 성씨 한자 제외, 이름 한자만 (예: 성씨가 "李"이면 → hanja: "睿潤", ❌ hanja: "李睿潤")
+- **meaning 필드**: 이름 부분만 사용 (예: "예윤은 ~", ❌ "이예윤은 ~")
+- 성씨를 name/hanja/meaning에 포함시키면 화면에서 성이 두 번 표시되는 버그 발생
 
 ## 이름 생성 프로세스 (반드시 이 순서로)
 1. 먼저 한글 이름을 정합니다 — 한국인이 일상에서 "OO아~", "OO이~"로 자연스럽게 부를 수 있는 이름
@@ -278,41 +323,87 @@ ${input.preferences?.avoidChars?.length ? `- 피할 글자: ${input.preferences.
 - [ ] 성씨 + 이름 전체를 소리내어 읽었을 때 어색하지 않은가?
 - [ ] 위 레퍼런스 이름들과 비슷한 감각인가?
 
-## reasonShort 작성 지침
-- 선택한 한자가 왜 이 사주에 맞는지 오행과 연결하여 1~2문장으로 설명
-- 음양 밸런스나 수리격 특징 한 가지 포함
-- 따뜻하고 희망적인 어조 유지
+## 각 이름에 반드시 포함할 두 가지 설명 (성격이 완전히 달라야 함)
+
+1. **meaning** (한자 뜻풀이): 사주·오행과 무관하게, 선택한 한자 글자 각각의 뜻을 풀어 설명.
+   - 형식: "'~할 X'와 '~할 Y'로, ~을 담은 이름"
+   - 예시: "서준은 '상서로울 瑞'와 '준걸 俊'으로, 행운과 빼어난 재능을 담은 이름입니다"
+   - 예시: "하윤은 '여름 夏'의 생명력과 '윤택할 潤'의 풍요로움을 담았습니다"
+   - ⚠️ 사주·오행·보강 언급 절대 금지
+
+2. **sajuInsight** (성명학 인사이트): 한자 뜻이 아닌, 이 아이의 사주와 이름의 관계만 설명.
+   - 형식: "사주에 ~이 부족해 ~를 보강했습니다" 또는 "~일간의 기운에 ~를 더해 균형을 맞췄습니다"
+   - 예시: "사주에 수(水)가 부족해 지혜와 유연함의 기운을 이름에 담았습니다"
+   - ⚠️ 한자 뜻 설명 절대 금지
 
 아래 형식의 JSON 배열로만 답변하세요. 배열([])로 시작하고 배열로 끝나야 합니다. 설명·마크다운·코드블록 없이 순수 JSON만:
 [
-  {"name": "서준", "hanja": "瑞俊", "reasonShort": "瑞(상서로울 서)는 ${ELEMENT_KO[complementElement]} 기운을 보완하며, 俊(준걸 준)과 함께 밝고 빼어난 인재의 기운을 담았습니다.", "sajuScore": 88},
-  {"name": "하윤", "hanja": "夏潤", "reasonShort": "潤(윤택할 윤)이 사주의 수 기운을 채워 균형을 이루며, 따뜻한 여름의 생명력을 품고 있습니다.", "sajuScore": 85}
+  {"name": "서준", "hanja": "瑞俊", "meaning": "서준은 '상서로울 瑞'와 '준걸 俊'으로, 행운과 빼어난 재능을 담은 이름입니다", "sajuInsight": "사주에 ${ELEMENT_KO[babyLacking]}이 부족해 ${ELEMENT_KO[complementElement]} 기운으로 균형을 맞췄습니다", "sajuScore": 88},
+  {"name": "하윤", "hanja": "夏潤", "meaning": "하윤은 '여름 夏'의 생명력과 '윤택할 潤'의 풍요로움을 담은 이름입니다", "sajuInsight": "수(水) 기운이 약한 사주에 潤(윤)자로 지혜와 유연함을 보강했습니다", "sajuScore": 85}
 ]`;
 
-  type RawName = { name: string; hanja: string; reasonShort: string; sajuScore?: number };
+  type RawName = { name: string; hanja: string; reasonShort: string; meaning?: string; sajuInsight?: string; sajuScore?: number };
 
-  async function parseLLMResponse(response: string): Promise<RawName[]> {
-    // 배열 형태 매칭 시도
-    const arrayMatch = response.match(/\[[\s\S]*\]/);
-    if (arrayMatch) {
-      return JSON.parse(arrayMatch[0]) as RawName[];
-    }
-    // 단일 객체 형태 매칭 (LLM이 배열 대신 객체를 반환하는 경우)
-    const objectMatch = response.match(/\{[\s\S]*\}/);
-    if (objectMatch) {
-      const parsed = JSON.parse(objectMatch[0]);
-      // 단일 객체면 배열로 감싸기
-      if (!Array.isArray(parsed) && parsed.name) {
-        return [parsed] as RawName[];
+  // Solar Pro 3가 따옴표 없는 JSON을 반환하는 경우 필드별 regex 추출로 복구
+  function extractNamesFromText(text: string): RawName[] {
+    const results: RawName[] = [];
+    const objectRegex = /\{[^{}]+\}/g;
+    const objects = text.match(objectRegex) ?? [];
+    for (const obj of objects) {
+      const nameMatch = obj.match(/name['":\s]+([가-힣]+)/);
+      const hanjaMatch = obj.match(/hanja['":\s]+([\u4e00-\u9fff\u3400-\u4dbf\uf900-\ufaff]+)/);
+      const scoreMatch = obj.match(/sajuScore['":\s]+(\d+)/);
+      const meaningMatch = obj.match(/meaning['":\s]+"?([^"]+?)"?(?=\s*,\s*"?\w|\s*})/);
+      const sajuInsightMatch = obj.match(/sajuInsight['":\s]+"?([^"]+?)"?(?=\s*,\s*"?\w|\s*})/);
+      const reasonMatch = obj.match(/reasonShort['":\s]+"?([^"]+?)"?(?=\s*,\s*sajuScore|\s*})/);
+      if (nameMatch?.[1]) {
+        results.push({
+          name: nameMatch[1],
+          hanja: hanjaMatch?.[1] ?? '',
+          reasonShort: reasonMatch?.[1]?.trim() ?? '',
+          meaning: meaningMatch?.[1]?.trim(),
+          sajuInsight: sajuInsightMatch?.[1]?.trim(),
+          sajuScore: scoreMatch ? parseInt(scoreMatch[1]) : Math.round(80 + Math.random() * 15),
+        });
       }
     }
+    return results;
+  }
+
+  async function parseLLMResponse(response: string): Promise<RawName[]> {
+    // 1) 표준 JSON 파싱 시도
+    const arrayMatch = response.match(/\[[\s\S]*\]/);
+    if (arrayMatch) {
+      try {
+        return JSON.parse(arrayMatch[0]) as RawName[];
+      } catch {
+        // Solar Pro 3가 따옴표 없는 JSON을 반환하는 경우 → regex fallback
+        const extracted = extractNamesFromText(arrayMatch[0]);
+        if (extracted.length > 0) return extracted;
+      }
+    }
+    // 2) 단일 객체 형태
+    const objectMatch = response.match(/\{[\s\S]*\}/);
+    if (objectMatch) {
+      try {
+        const parsed = JSON.parse(objectMatch[0]);
+        if (!Array.isArray(parsed) && parsed.name) return [parsed] as RawName[];
+      } catch {
+        const extracted = extractNamesFromText(objectMatch[0]);
+        if (extracted.length > 0) return extracted;
+      }
+    }
+    // 3) 전체 텍스트에서 필드 추출 시도
+    const fallback = extractNamesFromText(response);
+    if (fallback.length > 0) return fallback;
     throw new Error('Invalid response format: no JSON array or object found');
   }
 
   try {
     const response = await callLLM(systemPrompt, userPrompt, { temperature: 0.7, maxTokens: 1500 });
     const raw = await parseLLMResponse(response);
-    let validated = validateAndCorrectNames(raw.slice(0, 12), complementElement);
+    const stripped = stripSurnameIfPresent(raw.slice(0, 12), input.surname, input.surnameHanja);
+    let validated = validateAndCorrectNames(stripped, complementElement);
 
     // 검증 통과한 이름이 5개 미만이면 1회 재시도
     if (validated.length < 5) {
@@ -320,7 +411,8 @@ ${input.preferences?.avoidChars?.length ? `- 피할 글자: ${input.preferences.
       try {
         const retryResponse = await callLLM(systemPrompt, userPrompt, { temperature: 0.9, maxTokens: 1200 });
         const retryRaw = await parseLLMResponse(retryResponse);
-        const retryValidated = validateAndCorrectNames(retryRaw.slice(0, 10), complementElement);
+        const retryStripped = stripSurnameIfPresent(retryRaw.slice(0, 10), input.surname, input.surnameHanja);
+        const retryValidated = validateAndCorrectNames(retryStripped, complementElement);
         // 기존 통과 이름에 재시도 결과를 합쳐 중복 제거
         const seen = new Set(validated.map(n => n.hanja));
         for (const n of retryValidated) {

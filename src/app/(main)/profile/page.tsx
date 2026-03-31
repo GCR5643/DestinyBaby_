@@ -4,7 +4,7 @@ export const dynamic = 'force-dynamic';
 
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Settings, CreditCard, LogOut, ChevronRight, Heart, X, Calendar, Sparkles, LogIn, Gem, Users, Check } from 'lucide-react';
+import { Settings, CreditCard, LogOut, ChevronRight, Heart, X, Calendar, Sparkles, LogIn, Gem, Users, Check, Pencil, Clock } from 'lucide-react';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
@@ -17,11 +17,12 @@ interface ChildEntry {
   id: string;
   name: string;
   birthDate: string;
+  birthTime?: string;
 }
 
 export default function ProfilePage() {
   const router = useRouter();
-  const { user } = useUserStore();
+  const { user, isAuthReady } = useUserStore();
   const { dad, mom, setDad, setMom } = useParentStore();
   const { data: statsData } = trpc.user.getStats.useQuery();
   const { data: luckyDatesData } = trpc.birthdate.getMyLuckyDates.useQuery();
@@ -32,6 +33,9 @@ export default function ProfilePage() {
   const [showAddChild, setShowAddChild] = useState(false);
   const [childName, setChildName] = useState('');
   const [childBirthDate, setChildBirthDate] = useState('');
+  const [childBirthTime, setChildBirthTime] = useState('');
+  const [editingChildId, setEditingChildId] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState<{ name: string; birthDate: string; birthTime: string }>({ name: '', birthDate: '', birthTime: '' });
 
   // Parent edit state
   const [showParentEdit, setShowParentEdit] = useState(false);
@@ -70,15 +74,27 @@ export default function ProfilePage() {
 
   const handleAddChild = () => {
     if (!childName) return;
-    const newChild: ChildEntry = { id: Date.now().toString(), name: childName, birthDate: childBirthDate };
+    const newChild: ChildEntry = { id: Date.now().toString(), name: childName, birthDate: childBirthDate, birthTime: childBirthTime || undefined };
     saveChildren([...children, newChild]);
     setChildName('');
     setChildBirthDate('');
+    setChildBirthTime('');
     setShowAddChild(false);
   };
 
   const handleDeleteChild = (id: string) => {
     saveChildren(children.filter(c => c.id !== id));
+  };
+
+  const handleStartEdit = (child: ChildEntry) => {
+    setEditingChildId(child.id);
+    setEditForm({ name: child.name, birthDate: child.birthDate, birthTime: child.birthTime || '' });
+  };
+
+  const handleSaveEdit = () => {
+    if (!editingChildId || !editForm.name) return;
+    saveChildren(children.map(c => c.id === editingChildId ? { ...c, name: editForm.name, birthDate: editForm.birthDate, birthTime: editForm.birthTime || undefined } : c));
+    setEditingChildId(null);
   };
 
   const MENU_SECTIONS = [
@@ -99,6 +115,14 @@ export default function ProfilePage() {
       ],
     },
   ];
+
+  if (!isAuthReady && !SKIP_AUTH) {
+    return (
+      <div className="min-h-screen bg-ivory flex flex-col items-center justify-center px-6 pb-24">
+        <div className="w-10 h-10 border-4 border-primary-300 border-t-primary-600 rounded-full animate-spin" />
+      </div>
+    );
+  }
 
   if (!user && !SKIP_AUTH) {
     return (
@@ -259,15 +283,27 @@ export default function ProfilePage() {
                   className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-primary-400"
                 />
               </div>
-              <div>
-                <label className="text-xs text-gray-500 mb-1 block">생년월일 (또는 예정일)</label>
-                <input
-                  type="date"
-                  value={childBirthDate}
-                  onChange={e => setChildBirthDate(e.target.value)}
-                  className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-primary-400"
-                  style={{ colorScheme: 'light' }}
-                />
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="text-xs text-gray-500 mb-1 block">생년월일 (또는 예정일)</label>
+                  <input
+                    type="date"
+                    value={childBirthDate}
+                    onChange={e => setChildBirthDate(e.target.value)}
+                    className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-primary-400"
+                    style={{ colorScheme: 'light' }}
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-gray-500 mb-1 block">태어난 시간 (선택)</label>
+                  <input
+                    type="time"
+                    value={childBirthTime}
+                    onChange={e => setChildBirthTime(e.target.value)}
+                    className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-primary-400"
+                    style={{ colorScheme: 'light' }}
+                  />
+                </div>
               </div>
               <div className="flex gap-2">
                 <button onClick={handleAddChild} className="flex-1 bg-primary-500 text-white py-2 rounded-xl text-sm font-semibold">추가</button>
@@ -281,30 +317,81 @@ export default function ProfilePage() {
           ) : (
             <div className="space-y-3">
               {children.map(child => (
-                <div key={child.id} className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
-                  <div className="w-10 h-10 bg-primary-100 rounded-full flex items-center justify-center text-primary-600 font-bold text-sm shrink-0">
-                    {child.name[0]}
+                <div key={child.id}>
+                  <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
+                    <div className="w-10 h-10 bg-primary-100 rounded-full flex items-center justify-center text-primary-600 font-bold text-sm shrink-0">
+                      {child.name[0]}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-gray-800 text-sm">{child.name}</p>
+                      <p className="text-xs text-gray-400">
+                        {child.birthDate ? child.birthDate.replace(/-/g, '.') : '날짜 미입력'}
+                        {child.birthTime ? ` ${child.birthTime}` : ''}
+                        {child.birthDate ? ' 생' : ''}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <button
+                        onClick={() => router.push('/cards')}
+                        className="text-xs bg-purple-100 text-purple-700 px-2.5 py-1.5 rounded-full font-semibold"
+                      >
+                        🃏 카드뽑기
+                      </button>
+                      <button
+                        onClick={() => editingChildId === child.id ? setEditingChildId(null) : handleStartEdit(child)}
+                        className="text-gray-300 hover:text-primary-500 transition-colors"
+                      >
+                        <Pencil className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => handleDeleteChild(child.id)}
+                        className="text-gray-300 hover:text-red-400 transition-colors"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-gray-800 text-sm">{child.name}</p>
-                    {child.birthDate && (
-                      <p className="text-xs text-gray-400">{child.birthDate.replace(/-/g, '.')} 생</p>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    <button
-                      onClick={() => router.push('/cards')}
-                      className="text-xs bg-purple-100 text-purple-700 px-2.5 py-1.5 rounded-full font-semibold"
+                  {editingChildId === child.id && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      className="mt-2 p-3 bg-primary-50 rounded-xl space-y-2"
                     >
-                      🃏 카드뽑기
-                    </button>
-                    <button
-                      onClick={() => handleDeleteChild(child.id)}
-                      className="text-gray-300 hover:text-red-400 transition-colors"
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
-                  </div>
+                      <p className="text-xs font-bold text-primary-700 flex items-center gap-1">
+                        <Clock className="w-3 h-3" /> 아이 정보 수정
+                      </p>
+                      <input
+                        type="text"
+                        value={editForm.name}
+                        onChange={e => setEditForm({ ...editForm, name: e.target.value })}
+                        placeholder="이름"
+                        className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:border-primary-400"
+                      />
+                      <div className="grid grid-cols-2 gap-2">
+                        <input
+                          type="date"
+                          value={editForm.birthDate}
+                          onChange={e => setEditForm({ ...editForm, birthDate: e.target.value })}
+                          className="border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:border-primary-400"
+                          style={{ colorScheme: 'light' }}
+                        />
+                        <input
+                          type="time"
+                          value={editForm.birthTime}
+                          onChange={e => setEditForm({ ...editForm, birthTime: e.target.value })}
+                          placeholder="태어난 시간"
+                          className="border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:border-primary-400"
+                          style={{ colorScheme: 'light' }}
+                        />
+                      </div>
+                      <div className="flex gap-2">
+                        <button onClick={handleSaveEdit} className="flex-1 bg-primary-500 text-white py-2 rounded-xl text-sm font-semibold flex items-center justify-center gap-1">
+                          <Check className="w-3.5 h-3.5" /> 저장
+                        </button>
+                        <button onClick={() => setEditingChildId(null)} className="flex-1 bg-gray-100 text-gray-600 py-2 rounded-xl text-sm">취소</button>
+                      </div>
+                    </motion.div>
+                  )}
                 </div>
               ))}
             </div>

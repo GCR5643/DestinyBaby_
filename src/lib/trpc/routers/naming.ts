@@ -74,6 +74,7 @@ export const namingRouter = createTRPCRouter({
       hangryeolChar: z.string().optional(),
       siblingNames: z.array(z.string()).optional(),
       trendLevel: z.enum(['trendy', 'balanced', 'classic']).optional(),
+      nameLength: z.enum(['1', '2']).optional(),
     }))
     .mutation(async ({ ctx, input }) => {
       const parent1Saju = calculateSaju(input.parent1BirthDate, input.parent1BirthTime);
@@ -92,6 +93,7 @@ export const namingRouter = createTRPCRouter({
         hangryeolChar: input.hangryeolChar,
         siblingNames: input.siblingNames,
         trendLevel: input.trendLevel,
+        nameLength: input.nameLength,
       });
 
       const { data: request, error: requestError } = await ctx.supabase
@@ -224,6 +226,7 @@ export const namingRouter = createTRPCRouter({
       hangryeolChar: z.string().optional(),
       siblingNames: z.array(z.string()).optional(),
       trendLevel: z.enum(['trendy', 'balanced', 'classic']).optional(),
+      nameLength: z.enum(['1', '2']).optional(),
     }))
     .mutation(async ({ input }) => {
       const parent1Saju = calculateSaju(input.parent1BirthDate, input.parent1BirthTime);
@@ -242,6 +245,7 @@ export const namingRouter = createTRPCRouter({
         hangryeolChar: input.hangryeolChar,
         siblingNames: input.siblingNames,
         trendLevel: input.trendLevel,
+        nameLength: input.nameLength,
       });
 
       return { names, resultId: 'guest' };

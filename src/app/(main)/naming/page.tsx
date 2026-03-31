@@ -219,6 +219,7 @@ export default function NamingPage() {
                         value={field.value || ''}
                         onChange={field.onChange}
                         placeholder="생년월일 선택"
+                        openToDate={new Date(2000, 0, 1)}
                       />
                     )}
                   />
@@ -249,6 +250,7 @@ export default function NamingPage() {
                         value={field.value || ''}
                         onChange={field.onChange}
                         placeholder="생년월일 선택"
+                        openToDate={new Date(2000, 0, 1)}
                       />
                     )}
                   />
@@ -361,6 +363,7 @@ export default function NamingPage() {
                           value={field.value || ''}
                           onChange={field.onChange}
                           placeholder="생년월일 선택"
+                          openToDate={new Date()}
                         />
                       )}
                     />

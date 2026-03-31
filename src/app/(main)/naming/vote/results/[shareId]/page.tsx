@@ -421,7 +421,7 @@ export default function VoteResultsPage() {
                       const nameParam = encodeURIComponent(item.name);
                       const hanjaParam = encodeURIComponent(item.hanja || '');
                       const surnameParam = encodeURIComponent(surname);
-                      router.push(`/naming/review?name=${surnameParam}${nameParam}&hanja=${hanjaParam}`);
+                      router.push(`/naming/report/vote-${shareCode}?name=${nameParam}&hanja=${hanjaParam}&surname=${surnameParam}&final=true`);
                     }}
                     className="w-full flex items-center gap-4 p-4 rounded-2xl border-2 border-gray-100 hover:border-primary-300 hover:bg-primary-50 transition-all text-left"
                   >

@@ -10,6 +10,10 @@ const MAX_CONCURRENT = 3;             // 동시 LLM 호출 최대 3건
 interface LLMOptions {
   temperature?: number;
   maxTokens?: number;
+  /** 개별 요청 타임아웃 (기본 12초, 긴 응답은 20초+ 권장) */
+  fetchTimeoutMs?: number;
+  /** 총 시간 예산 (기본 25초, 긴 응답은 45초+ 권장) */
+  totalBudgetMs?: number;
 }
 
 // ========== 세마포어: 동시 호출 제한 ==========
@@ -55,15 +59,17 @@ async function callLLMWithRetry(
   attempt = 1,
   startTime = Date.now()
 ): Promise<string> {
-  // 총 시간 예산 체크
+  // 총 시간 예산 체크 (커스텀 또는 기본값)
+  const budgetMs = options.totalBudgetMs ?? TOTAL_BUDGET_MS;
+  const fetchTimeout = options.fetchTimeoutMs ?? FETCH_TIMEOUT_MS;
   const elapsed = Date.now() - startTime;
-  if (elapsed > TOTAL_BUDGET_MS) {
-    throw new Error(`LLM total budget exceeded (${elapsed}ms > ${TOTAL_BUDGET_MS}ms)`);
+  if (elapsed > budgetMs) {
+    throw new Error(`LLM total budget exceeded (${elapsed}ms > ${budgetMs}ms)`);
   }
 
   // 남은 시간으로 개별 타임아웃 조정
-  const remainingMs = TOTAL_BUDGET_MS - elapsed;
-  const thisTimeout = Math.min(FETCH_TIMEOUT_MS, remainingMs - 500); // 500ms 여유
+  const remainingMs = budgetMs - elapsed;
+  const thisTimeout = Math.min(fetchTimeout, remainingMs - 500); // 500ms 여유
   if (thisTimeout < 2000) {
     throw new Error(`LLM insufficient time remaining (${remainingMs}ms)`);
   }

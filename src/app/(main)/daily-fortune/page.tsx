@@ -2,16 +2,16 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Sun, ChevronDown, LogIn } from 'lucide-react';
+import { ChevronDown, LogIn } from 'lucide-react';
 import { trpc } from '@/lib/trpc/client';
 import { useUserStore } from '@/stores/userStore';
 import FortuneCard from '@/components/fortune/FortuneCard';
 import FortuneCardLocked from '@/components/fortune/FortuneCardLocked';
 import FragmentBadge from '@/components/wallet/FragmentBadge';
-import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { SKIP_AUTH } from '@/lib/auth/skip-auth';
 import type { FortuneCard as FortuneCardType } from '@/types';
+import KoreanLuckyBag from '@/components/fortune/KoreanLuckyBag';
 
 const CARD_META = [
   { type: 'fortune', emoji: '☀️', title: '오늘의 운세', color: 'gold-100' },
@@ -22,41 +22,46 @@ const CARD_META = [
   { type: 'parenting', emoji: '🌱', title: '육아팁', color: 'amber-100' },
 ];
 
-const GUEST_DAILY_LIMIT = 3;
-
-function getGuestUsageToday(): number {
-  try {
-    const stored = localStorage.getItem('fortune_guest_usage');
-    if (!stored) return 0;
-    const { date, count } = JSON.parse(stored);
-    if (date === new Date().toISOString().split('T')[0]) return count;
-    return 0;
-  } catch { return 0; }
+function getFortunePeriod(): 'morning' | 'evening' {
+  return new Date().getHours() < 12 ? 'morning' : 'evening';
 }
 
-function incrementGuestUsage(): number {
+function getPeriodLabel(): string {
+  return getFortunePeriod() === 'morning' ? '🌅 오전 운세' : '🌙 저녁 운세';
+}
+
+function getNextRenewalTime(): string {
+  return getFortunePeriod() === 'morning' ? '낮 12시에 저녁 운세가 열려요' : '내일 아침 12시에 오전 운세가 열려요';
+}
+
+/** 게스트: 현재 기간(오전/저녁) 사용 여부 확인 */
+function getGuestPeriodKey(): string {
   const today = new Date().toISOString().split('T')[0];
-  const current = getGuestUsageToday();
-  const next = current + 1;
-  localStorage.setItem('fortune_guest_usage', JSON.stringify({ date: today, count: next }));
-  return next;
+  const period = getFortunePeriod();
+  return `fortune_guest_${today}_${period}`;
+}
+
+function hasGuestUsedThisPeriod(): boolean {
+  try { return localStorage.getItem(getGuestPeriodKey()) === 'used'; } catch { return false; }
+}
+
+function markGuestPeriodUsed(): void {
+  try { localStorage.setItem(getGuestPeriodKey(), 'used'); } catch { /* ignore */ }
 }
 
 export default function DailyFortunePage() {
-  const router = useRouter();
   const { user, updateFragments } = useUserStore();
   const [selectedChildId, setSelectedChildId] = useState<string | null>(null);
   const [fortuneCards, setFortuneCards] = useState<FortuneCardType[] | null>(null);
   const [isUnlocked, setIsUnlocked] = useState(false);
   const [showConfetti, setShowConfetti] = useState(false);
-  const [guestUsage, setGuestUsage] = useState(0);
   const [guestLimitReached, setGuestLimitReached] = useState(false);
+  const [isShaking, setIsShaking] = useState(false);
 
   // 게스트 입력
   const [guestName, setGuestName] = useState('');
   const [guestBirthDate, setGuestBirthDate] = useState('');
 
-  // 로그인 유저 데이터 (SKIP_AUTH 시에도 활성화)
   const { data: childrenData } = trpc.user.getChildren.useQuery(undefined, { enabled: !!user || SKIP_AUTH });
   const { data: balanceData, refetch: refetchBalance } = trpc.fragments.getBalance.useQuery(undefined, { enabled: !!user || SKIP_AUTH });
 
@@ -64,34 +69,27 @@ export default function DailyFortunePage() {
   const fragmentBalance = balanceData?.fragments ?? user?.destiny_fragments ?? 0;
   const isGuest = !user && !SKIP_AUTH;
 
-  // 오늘 이미 생성된 운세 확인 (로그인 유저)
   const { data: todayCheck } = trpc.dailyFortune.hasTodayFortune.useQuery(
     { childId: selectedChildId! },
     { enabled: !!selectedChildId && (!!user || SKIP_AUTH) }
   );
 
-  // 로그인 유저: fortune mutation
   const generateFortune = trpc.dailyFortune.getDailyFortune.useMutation({
     onSuccess: (data) => {
       if (data.success && data.fortune) {
         setFortuneCards(data.fortune.fortune_data as FortuneCardType[]);
         setIsUnlocked(true);
         setShowConfetti(true);
-        if (!data.wasFree) {
-          updateFragments(-1);
-          refetchBalance();
-        }
+        if (!data.wasFree) { updateFragments(-1); refetchBalance(); }
         setTimeout(() => setShowConfetti(false), 3000);
       }
     },
   });
 
-  // 게스트 fortune mutation
   const generateGuestFortune = trpc.dailyFortune.getGuestFortune.useMutation({
     onSuccess: (data) => {
       if (data.success && data.cards) {
-        const used = incrementGuestUsage();
-        setGuestUsage(used);
+        markGuestPeriodUsed();
         setFortuneCards(data.cards as FortuneCardType[]);
         setIsUnlocked(true);
         setShowConfetti(true);
@@ -100,9 +98,7 @@ export default function DailyFortunePage() {
     },
   });
 
-  // localStorage 게스트 입력 복원
   useEffect(() => {
-    setGuestUsage(getGuestUsageToday());
     try {
       const saved = localStorage.getItem('fortune_guest_child');
       if (saved) {
@@ -113,14 +109,10 @@ export default function DailyFortunePage() {
     } catch { /* ignore */ }
   }, []);
 
-  // Auto-select first child (로그인 유저)
   useEffect(() => {
-    if (children.length && !selectedChildId) {
-      setSelectedChildId(children[0].id);
-    }
+    if (children.length && !selectedChildId) setSelectedChildId(children[0].id);
   }, [children, selectedChildId]);
 
-  // Load cached fortune (로그인 유저)
   useEffect(() => {
     if (todayCheck?.hasFortune && todayCheck.fortune) {
       setFortuneCards(todayCheck.fortune.fortune_data as FortuneCardType[]);
@@ -128,13 +120,19 @@ export default function DailyFortunePage() {
     }
   }, [todayCheck]);
 
+  /** 복주머니 탭 → 흔들기 → 운세 생성 */
+  const handleBagTap = useCallback((unlockFn: () => void) => {
+    if (isShaking || generateFortune.isPending || generateGuestFortune.isPending) return;
+    setIsShaking(true);
+    setTimeout(() => {
+      setIsShaking(false);
+      unlockFn();
+    }, 700);
+  }, [isShaking, generateFortune.isPending, generateGuestFortune.isPending]);
+
   const handleGuestUnlock = useCallback(() => {
     if (!guestName.trim() || !guestBirthDate) return;
-    if (getGuestUsageToday() >= GUEST_DAILY_LIMIT) {
-      setGuestLimitReached(true);
-      return;
-    }
-    // localStorage에 입력값 저장 (재방문 시 자동 입력)
+    if (hasGuestUsedThisPeriod()) { setGuestLimitReached(true); return; }
     localStorage.setItem('fortune_guest_child', JSON.stringify({ name: guestName.trim(), birthDate: guestBirthDate }));
     generateGuestFortune.mutate({ childName: guestName.trim(), birthDate: guestBirthDate });
   }, [guestName, guestBirthDate, generateGuestFortune]);
@@ -144,8 +142,8 @@ export default function DailyFortunePage() {
     generateFortune.mutate({ childId: selectedChildId });
   }, [selectedChildId, generateFortune]);
 
-  // 오늘 첫 번째 아이인지 (로그인 유저 무료 여부 표시용)
   const todayFortuneExists = todayCheck?.hasFortune;
+  const isPending = generateFortune.isPending || generateGuestFortune.isPending;
 
   const todayStr = new Date().toLocaleDateString('ko-KR', {
     year: 'numeric', month: 'long', day: 'numeric', weekday: 'long',
@@ -159,17 +157,11 @@ export default function DailyFortunePage() {
           <div className="flex items-center justify-between mb-4">
             <div>
               <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-                <Sun className="w-7 h-7 text-amber-500" />
-                오늘의 운수
+                {getPeriodLabel()}
               </h1>
               <p className="text-sm text-gray-500 mt-1">{todayStr}</p>
             </div>
             {!isGuest && <FragmentBadge balance={fragmentBalance} />}
-            {isGuest && (
-              <span className="text-xs bg-amber-100 text-amber-700 px-3 py-1.5 rounded-full font-medium">
-                무료 {GUEST_DAILY_LIMIT - guestUsage}회 남음
-              </span>
-            )}
           </div>
 
           {/* 로그인 유저: 아이 선택 */}
@@ -209,18 +201,14 @@ export default function DailyFortunePage() {
                 <FortuneCard key={card.type} emoji={card.emoji} title={card.title} content={card.content} color={card.color} index={i} />
               ))}
 
-              {/* 게스트: 다시 보기 + 회원가입 유도 */}
+              {/* 다음 갱신 안내 */}
+              <p className="text-center text-xs text-gray-400 pt-1">🔄 {getNextRenewalTime()}</p>
+
               {isGuest && (
                 <div className="space-y-3 pt-2">
-                  <button
-                    onClick={() => { setIsUnlocked(false); setFortuneCards(null); }}
-                    className="w-full py-3 bg-amber-100 text-amber-700 rounded-xl font-bold text-sm"
-                  >
-                    다른 아이 운세도 보기 ({GUEST_DAILY_LIMIT - guestUsage}회 남음)
-                  </button>
                   <div className="bg-gradient-to-r from-primary-50 to-secondary-50 rounded-2xl p-5 text-center">
-                    <p className="text-sm font-bold text-gray-800 mb-1">매일 무료 운세 + 조각 10개 🎁</p>
-                    <p className="text-xs text-gray-500 mb-3">회원가입하면 매일 첫 아이 운세가 무료!</p>
+                    <p className="text-sm font-bold text-gray-800 mb-1">매일 2회 무료 운세 + 조각 10개 🎁</p>
+                    <p className="text-xs text-gray-500 mb-3">회원가입하면 오전·저녁 운세가 매일 무료!</p>
                     <Link href="/login?redirect=/daily-fortune" className="inline-flex items-center gap-2 bg-primary-500 text-white px-6 py-2.5 rounded-xl font-bold text-sm">
                       <LogIn className="w-4 h-4" /> 무료 회원가입
                     </Link>
@@ -228,7 +216,6 @@ export default function DailyFortunePage() {
                 </div>
               )}
 
-              {/* 로그인 유저: 다른 아이 보기 */}
               {!isGuest && children.length > 1 && (
                 <p className="text-center text-xs text-gray-400 pt-2">
                   다른 아이 운세는 상단에서 아이를 선택해 주세요 (조각 1개)
@@ -254,15 +241,15 @@ export default function DailyFortunePage() {
             <motion.div key="limit" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
               <div className="bg-white rounded-2xl p-8 shadow-sm text-center">
                 <div className="text-5xl mb-4">🔮</div>
-                <h2 className="text-lg font-bold text-gray-800 mb-2">오늘의 무료 운세를 모두 사용했어요</h2>
+                <h2 className="text-lg font-bold text-gray-800 mb-2">이번 운세는 모두 확인했어요</h2>
+                <p className="text-sm text-gray-500 mb-2">{getNextRenewalTime()} ✨</p>
                 <p className="text-sm text-gray-500 mb-6">
-                  회원가입하면 매일 첫 아이 운세 무료!<br />
-                  지금 가입하면 <strong className="text-primary-600">운명의 조각 10개</strong>를 드려요 ✨
+                  회원가입하면 오전·저녁 매일 2회 무료!<br />
+                  지금 가입하면 <strong className="text-primary-600">운명의 조각 10개</strong>를 드려요
                 </p>
                 <Link href="/login?redirect=/daily-fortune" className="inline-flex items-center gap-2 bg-primary-500 text-white px-8 py-3.5 rounded-xl font-bold text-base shadow-lg">
                   <LogIn className="w-5 h-5" /> 무료 회원가입하기
                 </Link>
-                <p className="text-xs text-gray-400 mt-3">내일 다시 무료 3회 충전돼요</p>
               </div>
             </motion.div>
 
@@ -287,15 +274,30 @@ export default function DailyFortunePage() {
                       className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-amber-300 focus:border-amber-300 outline-none" />
                   </div>
                 </div>
-                <button onClick={handleGuestUnlock}
-                  disabled={!guestName.trim() || !guestBirthDate || generateGuestFortune.isPending}
-                  className="w-full mt-5 bg-gradient-to-r from-amber-400 to-orange-400 text-white py-3.5 rounded-xl font-bold text-base shadow-lg disabled:opacity-50 flex items-center justify-center gap-2">
-                  {generateGuestFortune.isPending ? (
-                    <><motion.div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full" animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Infinity, ease: 'linear' }} /> 운세 생성 중...</>
-                  ) : (
-                    <><Sun className="w-5 h-5" /> 오늘의 운수 확인하기 (무료)</>
+
+                {/* 복주머니 인터랙션 */}
+                <div className="mt-6 flex flex-col items-center gap-3">
+                  <p className="text-sm text-gray-500">복주머니를 눌러서 운세를 확인하세요 🎊</p>
+                  <motion.button
+                    onClick={() => handleBagTap(handleGuestUnlock)}
+                    disabled={!guestName.trim() || !guestBirthDate || isPending}
+                    className="text-8xl select-none disabled:opacity-40 cursor-pointer"
+                    animate={isShaking ? {
+                      rotate: [0, -18, 18, -18, 18, -12, 12, -6, 6, 0],
+                      scale: [1, 1.12, 1.12, 1.12, 1.12, 1.07, 1.07, 1.03, 1.03, 1],
+                    } : {}}
+                    transition={{ duration: 0.7 }}
+                    whileTap={{ scale: 0.93 }}
+                  >
+                    {isPending
+                      ? <span className="text-6xl">✨</span>
+                      : <KoreanLuckyBag className="w-28 h-28 drop-shadow-lg" />
+                    }
+                  </motion.button>
+                  {isPending && (
+                    <p className="text-sm text-amber-600 font-medium animate-pulse">운세 생성 중...</p>
                   )}
-                </button>
+                </div>
               </div>
               {CARD_META.map((meta, i) => (
                 <FortuneCardLocked key={meta.type} emoji={meta.emoji} title={meta.title} color={meta.color} index={i} />
@@ -303,46 +305,56 @@ export default function DailyFortunePage() {
             </motion.div>
 
           ) : (
-            /* ===== 로그인 유저: 해금 CTA ===== */
+            /* ===== 로그인 유저: 복주머니 CTA ===== */
             <motion.div key="locked-user" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-3">
-              {/* 무료/유료 안내 배너 */}
-              <div className="bg-white rounded-2xl p-5 shadow-sm">
+              <div className="bg-white rounded-2xl p-6 shadow-sm">
                 {!todayFortuneExists ? (
-                  <div className="text-center">
-                    <p className="text-base font-bold text-gray-800 mb-1">오늘 첫 운세는 <span className="text-amber-500">무료</span>예요! 🎉</p>
-                    <p className="text-xs text-gray-500 mb-4">매일 첫 번째 아이의 운세를 무료로 확인하세요</p>
-                    <button onClick={handleLoggedInUnlock}
-                      disabled={generateFortune.isPending}
-                      className="w-full bg-gradient-to-r from-amber-400 to-orange-400 text-white py-3.5 rounded-xl font-bold text-base shadow-lg disabled:opacity-50 flex items-center justify-center gap-2">
-                      {generateFortune.isPending ? (
-                        <><motion.div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full" animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Infinity, ease: 'linear' }} /> 운세 생성 중...</>
-                      ) : (
-                        <><Sun className="w-5 h-5" /> 무료로 운수 확인하기</>
-                      )}
-                    </button>
+                  <div className="text-center space-y-2">
+                    <p className="text-base font-bold text-gray-800">
+                      {getPeriodLabel()} <span className="text-amber-500">무료</span>예요! 🎉
+                    </p>
+                    <p className="text-xs text-gray-500">복주머니를 눌러서 운세를 확인하세요 🎊</p>
                   </div>
                 ) : (
-                  <div className="text-center">
-                    <p className="text-base font-bold text-gray-800 mb-1">추가 아이 운세 보기</p>
-                    <p className="text-xs text-gray-500 mb-4">운명의 조각 1개가 필요해요 (보유: {fragmentBalance}개)</p>
-                    {fragmentBalance >= 1 ? (
-                      <button onClick={handleLoggedInUnlock}
-                        disabled={generateFortune.isPending}
-                        className="w-full bg-gradient-to-r from-purple-400 to-primary-500 text-white py-3.5 rounded-xl font-bold text-base shadow-lg disabled:opacity-50 flex items-center justify-center gap-2">
-                        {generateFortune.isPending ? (
-                          <><motion.div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full" animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Infinity, ease: 'linear' }} /> 운세 생성 중...</>
-                        ) : (
-                          <>🔮 조각 1개로 운수 확인하기</>
-                        )}
-                      </button>
-                    ) : (
-                      <Link href="/profile/fragments" className="block w-full bg-gray-100 text-gray-600 py-3.5 rounded-xl font-bold text-base text-center">
+                  <div className="text-center space-y-2">
+                    <p className="text-base font-bold text-gray-800">추가 아이 운세 보기</p>
+                    <p className="text-xs text-gray-500">운명의 조각 1개가 필요해요 (보유: {fragmentBalance}개)</p>
+                    {fragmentBalance < 1 && (
+                      <Link href="/profile/fragments" className="block w-full bg-gray-100 text-gray-600 py-3 rounded-xl font-bold text-sm text-center mt-3">
                         조각 충전하러 가기
                       </Link>
                     )}
                   </div>
                 )}
+
+                {/* 복주머니 */}
+                {((!todayFortuneExists) || (todayFortuneExists && fragmentBalance >= 1)) && (
+                  <div className="mt-4 flex flex-col items-center gap-2">
+                    <motion.button
+                      onClick={() => handleBagTap(handleLoggedInUnlock)}
+                      disabled={isPending}
+                      className="text-8xl select-none disabled:opacity-40 cursor-pointer"
+                      animate={isShaking ? {
+                        rotate: [0, -20, 20, -20, 20, -15, 15, -8, 8, 0],
+                        scale: [1, 1.15, 1.15, 1.15, 1.15, 1.1, 1.1, 1.05, 1.05, 1],
+                      } : {}}
+                      transition={{ duration: 0.7 }}
+                      whileTap={{ scale: 0.95 }}
+                    >
+                      {isPending ? '✨' : '🧧'}
+                    </motion.button>
+                    {isPending && (
+                      <p className="text-sm text-amber-600 font-medium animate-pulse">운세 생성 중...</p>
+                    )}
+                    {!isPending && todayFortuneExists && (
+                      <p className="text-xs text-gray-400">조각 1개 차감됩니다</p>
+                    )}
+                  </div>
+                )}
               </div>
+
+              <p className="text-center text-xs text-gray-400">🔄 {getNextRenewalTime()}</p>
+
               {CARD_META.map((meta, i) => (
                 <FortuneCardLocked key={meta.type} emoji={meta.emoji} title={meta.title} color={meta.color} index={i} />
               ))}

@@ -566,31 +566,95 @@ export function NamingReportPDF({ report, generatedDate }: NamingReportPDFProps)
         <PageFooter />
       </Page>
 
-      {/* Page 4 - 이름 한자 풀이 */}
+      {/* Page 4 - 사주 원국 해석 + 용신 분석 */}
       <Page size="A4" style={styles.page}>
-        <PageHeader title="이름 한자 풀이" pageNum={4} />
-        <Text style={styles.sectionTitle}>이름 한자 풀이</Text>
-        <Text style={styles.sectionSubtitle}>
-          각 글자에 담긴 의미와 한자를 풀이합니다.
-        </Text>
-
-        {report.meaningBreakdown.map((item, i) => (
-          <View key={i} style={styles.card}>
-            <View style={styles.cardRow}>
-              <View>
-                <Text style={styles.hanjaChar}>{item.hanja}</Text>
-                <Text style={styles.hanjaKorean}>{item.char}</Text>
-              </View>
-              <Text style={styles.meaningText}>{item.meaning}</Text>
+        <PageHeader title="사주 원국 해석" pageNum={4} />
+        {report.sajuNarrative ? (
+          <>
+            <Text style={styles.sectionTitle}>사주 원국 해석</Text>
+            <Text style={styles.sectionSubtitle}>
+              태어난 순간의 천지 기운으로 읽는 아이의 타고난 기질
+            </Text>
+            <View style={styles.infoBox}>
+              <Text style={styles.infoBoxText}>{report.sajuNarrative}</Text>
             </View>
-          </View>
-        ))}
+            {report.yongshinAnalysis && (
+              <>
+                <Text style={[styles.sectionTitle, { marginTop: 20, fontSize: 14 }]}>용신(用神) 분석</Text>
+                <View style={styles.card}>
+                  <Text style={styles.meaningText}>{report.yongshinAnalysis}</Text>
+                </View>
+              </>
+            )}
+            {report.nameEnergyStory && (
+              <>
+                <Text style={[styles.sectionTitle, { marginTop: 20, fontSize: 14 }]}>이름이 사주를 완성하는 원리</Text>
+                <View style={styles.commentBox}>
+                  <Text style={styles.commentText}>{report.nameEnergyStory}</Text>
+                </View>
+              </>
+            )}
+          </>
+        ) : (
+          <>
+            <Text style={styles.sectionTitle}>이름 한자 풀이</Text>
+            <Text style={styles.sectionSubtitle}>
+              각 글자에 담긴 의미와 한자를 풀이합니다.
+            </Text>
+            {report.meaningBreakdown.map((item, i) => (
+              <View key={i} style={styles.card}>
+                <View style={styles.cardRow}>
+                  <View>
+                    <Text style={styles.hanjaChar}>{item.hanja}</Text>
+                    <Text style={styles.hanjaKorean}>{item.char}</Text>
+                  </View>
+                  <Text style={styles.meaningText}>{item.meaning}</Text>
+                </View>
+              </View>
+            ))}
+          </>
+        )}
         <PageFooter />
       </Page>
 
-      {/* Page 5 - 음양오행 분석 */}
+      {/* Page 5 - 한자 심층 분석 */}
       <Page size="A4" style={styles.page}>
-        <PageHeader title="음양오행 분석" pageNum={5} />
+        <PageHeader title="한자 심층 분석" pageNum={5} />
+        <Text style={styles.sectionTitle}>한자 심층 분석</Text>
+        <Text style={styles.sectionSubtitle}>
+          각 글자의 의미, 유래, 문화적 배경을 살펴봅니다.
+        </Text>
+
+        {(report.characterDeepDive ?? report.meaningBreakdown).map((item, i) => {
+          const deep = report.characterDeepDive?.[i];
+          return (
+            <View key={i} style={[styles.card, { marginBottom: 14 }]}>
+              <View style={styles.cardRow}>
+                <View>
+                  <Text style={styles.hanjaChar}>{item.hanja}</Text>
+                  <Text style={styles.hanjaKorean}>{item.char}</Text>
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.meaningText}>{item.meaning}</Text>
+                  {deep && 'etymology' in deep && (
+                    <>
+                      <Text style={[styles.infoBoxLabel, { marginTop: 8 }]}>한자의 유래</Text>
+                      <Text style={[styles.meaningText, { color: C.textSecondary }]}>{deep.etymology}</Text>
+                      <Text style={[styles.infoBoxLabel, { marginTop: 8 }]}>문화적 의미</Text>
+                      <Text style={[styles.meaningText, { color: C.textSecondary }]}>{deep.culturalNote}</Text>
+                    </>
+                  )}
+                </View>
+              </View>
+            </View>
+          );
+        })}
+        <PageFooter />
+      </Page>
+
+      {/* Page 6 - 음양오행 분석 */}
+      <Page size="A4" style={styles.page}>
+        <PageHeader title="음양오행 분석" pageNum={6} />
         <Text style={styles.sectionTitle}>음양오행 분석</Text>
         <Text style={styles.sectionSubtitle}>
           이름에 담긴 오행의 균형과 조화를 분석합니다.
@@ -623,9 +687,9 @@ export function NamingReportPDF({ report, generatedDate }: NamingReportPDFProps)
         <PageFooter />
       </Page>
 
-      {/* Page 6 - 발음 분석 */}
+      {/* Page 7 - 발음 분석 */}
       <Page size="A4" style={styles.page}>
-        <PageHeader title="발음 분석" pageNum={6} />
+        <PageHeader title="발음 분석" pageNum={7} />
         <Text style={styles.sectionTitle}>발음 분석</Text>
         <Text style={styles.sectionSubtitle}>
           이름의 음운 조화와 발음 편의성을 분석합니다.
@@ -655,9 +719,9 @@ export function NamingReportPDF({ report, generatedDate }: NamingReportPDFProps)
         <PageFooter />
       </Page>
 
-      {/* Page 7 - 오행 인생 추천 */}
+      {/* Page 8 - 오행 인생 추천 */}
       <Page size="A4" style={styles.page}>
-        <PageHeader title="오행 인생 추천" pageNum={7} />
+        <PageHeader title="오행 인생 추천" pageNum={8} />
         <Text style={styles.sectionTitle}>오행 인생 추천</Text>
         <Text style={styles.sectionSubtitle}>
           주요 오행({ELEMENT_LABELS[mainElement] || mainElement})을 기반으로 한 인생 추천입니다.
@@ -688,9 +752,47 @@ export function NamingReportPDF({ report, generatedDate }: NamingReportPDFProps)
         <PageFooter />
       </Page>
 
-      {/* Page 8 - 종합 소견 */}
+      {/* Page - 부모 궁합 상세 + 축복 편지 */}
+      {(report.parentCompatibilityNarrative || report.blessingLetter) && (
+        <Page size="A4" style={styles.page}>
+          <PageHeader title="부모 궁합 & 축복 편지" pageNum={9} />
+          {report.parentCompatibilityNarrative && (
+            <>
+              <Text style={styles.sectionTitle}>부모-아이 궁합 상세 해석</Text>
+              <View style={styles.card}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-around', marginBottom: 12 }}>
+                  <View style={{ alignItems: 'center' }}>
+                    <Text style={[styles.scoreValue, { fontSize: 22 }]}>{report.parentCompatibility.mom}</Text>
+                    <Text style={styles.scoreLabel}>엄마 궁합</Text>
+                  </View>
+                  <View style={{ alignItems: 'center' }}>
+                    <Text style={[styles.scoreValue, { fontSize: 22 }]}>{report.parentCompatibility.dad}</Text>
+                    <Text style={styles.scoreLabel}>아빠 궁합</Text>
+                  </View>
+                  <View style={{ alignItems: 'center' }}>
+                    <Text style={[styles.scoreValue, { fontSize: 22 }]}>{report.parentCompatibility.combined}</Text>
+                    <Text style={styles.scoreLabel}>종합</Text>
+                  </View>
+                </View>
+                <Text style={[styles.meaningText, { lineHeight: 1.8 }]}>{report.parentCompatibilityNarrative}</Text>
+              </View>
+            </>
+          )}
+          {report.blessingLetter && (
+            <>
+              <Text style={[styles.sectionTitle, { marginTop: 20 }]}>{report.name}에게 보내는 축복 편지</Text>
+              <View style={styles.commentBox}>
+                <Text style={[styles.commentText, { lineHeight: 2 }]}>{report.blessingLetter}</Text>
+              </View>
+            </>
+          )}
+          <PageFooter />
+        </Page>
+      )}
+
+      {/* Page - 종합 소견 */}
       <Page size="A4" style={styles.page}>
-        <PageHeader title="종합 소견" pageNum={8} />
+        <PageHeader title="종합 소견" pageNum={report.parentCompatibilityNarrative || report.blessingLetter ? 10 : 9} />
         <Text style={styles.sectionTitle}>종합 소견</Text>
         <Text style={styles.sectionSubtitle}>
           사주, 획수, 음양오행, 발음을 종합한 최종 소견입니다.

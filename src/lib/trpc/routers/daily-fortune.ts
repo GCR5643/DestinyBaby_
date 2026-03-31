@@ -4,6 +4,11 @@ import { createTRPCRouter, protectedProcedure, publicProcedure } from '@/lib/trp
 import { generateDailyFortune } from '@/lib/llm/fortune-prompts';
 import type { DailyFortune, SajuResult, Child } from '@/types';
 
+/** 현재 시간대 반환: 자정~낮12시 = morning, 낮12시~자정 = evening */
+function getFortunePeriod(): 'morning' | 'evening' {
+  return new Date().getHours() < 12 ? 'morning' : 'evening';
+}
+
 export const dailyFortuneRouter = createTRPCRouter({
   // 게스트용: 로그인 없이 이름+생년월일로 운세 생성
   getGuestFortune: publicProcedure
@@ -46,14 +51,16 @@ export const dailyFortuneRouter = createTRPCRouter({
     }))
     .mutation(async ({ ctx, input }) => {
       const today = new Date().toISOString().split('T')[0];
+      const period = getFortunePeriod();
 
-      // Check DB cache first (free re-view on same day)
+      // Check DB cache first (같은 기간 이미 생성된 운세 무료 재조회)
       try {
         const { data: cached } = await ctx.supabase
           .from('daily_fortunes')
           .select('*')
           .eq('child_id', input.childId)
           .eq('fortune_date', today)
+          .eq('fortune_period', period)
           .single();
 
         if (cached) {
@@ -67,21 +74,22 @@ export const dailyFortuneRouter = createTRPCRouter({
         // Not found — continue to generate
       }
 
-      // 오늘 이미 무료로 생성한 운수가 있는지 확인
-      let todayFortuneCount = 0;
+      // 현재 기간(오전/저녁)에 이미 무료로 생성한 운수가 있는지 확인
+      let periodFortuneCount = 0;
       try {
         const { count } = await ctx.supabase
           .from('daily_fortunes')
           .select('id', { count: 'exact', head: true })
           .eq('user_id', ctx.user.id)
-          .eq('fortune_date', today);
-        todayFortuneCount = count ?? 0;
+          .eq('fortune_date', today)
+          .eq('fortune_period', period);
+        periodFortuneCount = count ?? 0;
       } catch {
         // table may not exist
       }
 
-      // 첫 번째 아이(오늘 첫 운세)는 무료
-      const isFree = todayFortuneCount === 0;
+      // 각 기간(오전/저녁) 첫 번째 아이는 무료
+      const isFree = periodFortuneCount === 0;
 
       if (!isFree) {
         // 추가 아이는 조각 1개 차감
@@ -181,6 +189,7 @@ export const dailyFortuneRouter = createTRPCRouter({
           child_id: input.childId,
           user_id: ctx.user.id,
           fortune_date: today,
+          fortune_period: period,
           fortune_data: cards,
           fragment_cost: isFree ? 0 : 1,
         })
@@ -211,6 +220,7 @@ export const dailyFortuneRouter = createTRPCRouter({
     }))
     .query(async ({ ctx, input }) => {
       const today = new Date().toISOString().split('T')[0];
+      const period = getFortunePeriod();
 
       try {
         const { data } = await ctx.supabase
@@ -218,6 +228,7 @@ export const dailyFortuneRouter = createTRPCRouter({
           .select('*')
           .eq('child_id', input.childId)
           .eq('fortune_date', today)
+          .eq('fortune_period', period)
           .single();
 
         if (data) {

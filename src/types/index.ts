@@ -125,6 +125,7 @@ export interface NamingInput {
   hangryeolChar?: string;
   siblingNames?: string[];
   trendLevel?: TrendLevel;
+  nameLength?: '1' | '2';
   preferences?: {
     preferredElements?: Element[];
     avoidChars?: string[];
@@ -135,6 +136,8 @@ export interface SuggestedName {
   name: string;
   hanja: string;
   reasonShort: string;
+  meaning?: string;
+  sajuInsight?: string;
   sajuScore: number;
   element?: Element;
 }
@@ -189,6 +192,33 @@ export interface NamingReport {
   jawonOheng?: { elements: (Element | null)[]; matchCount: number; generateCount: number; score: number };
   bulyongCheck?: { passed: boolean; issues: { hanja: string; reading: string; reason: string }[]; score: number };
   expertScore?: number; // 전문가 기준 종합 가중치 점수 (0~100)
+
+  // ── 확장 리포트 필드 (유료 프리미엄 리포트) ──
+  /** 사주 원국 해석 — 아이의 타고난 기질과 사주 구성 서사 (5-8문장) */
+  sajuNarrative?: string;
+  /** 용신 분석 — 어떤 기운이 왜 필요한지 설명 (3-5문장) */
+  yongshinAnalysis?: string;
+  /** 이름-사주 연결 — 이 이름이 사주를 어떻게 보완하는지 원리 서사 (5-8문장) */
+  nameEnergyStory?: string;
+  /** 한자 심층 분석 — 유래, 문화적 의미, 이름에 담긴 부모의 바람 */
+  characterDeepDive?: {
+    char: string;
+    hanja: string;
+    meaning: string;
+    etymology: string;
+    culturalNote: string;
+  }[];
+  /** 부모 궁합 상세 해석 — 엄마·아빠 각각과의 관계 서사 (4-6문장) */
+  parentCompatibilityNarrative?: string;
+  /** 개인화된 축복 편지 — 이 아이만을 위한 따뜻한 편지 (6-10문장) */
+  blessingLetter?: string;
+  /** 개인화된 인생 이정표 — 사주 기반 시기별 조언 */
+  personalizedMilestones?: {
+    age: string;
+    icon: string;
+    title: string;
+    description: string;
+  }[];
 }
 
 export interface EnglishNameSuggestion {

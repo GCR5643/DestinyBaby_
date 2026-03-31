@@ -158,19 +158,27 @@ export async function analyzeName(
   const p1MainKo = ELEMENT_KO[parentSaju1.mainElement] ?? parentSaju1.mainElement;
   const p2MainKo = parentSaju2 ? (ELEMENT_KO[parentSaju2.mainElement] ?? parentSaju2.mainElement) : null;
 
-  const systemPrompt = `당신은 전통 명리학과 작명학의 전문가입니다.
+  const systemPrompt = `당신은 30년 경력의 전통 명리학·작명학 대가이자 육아 전문 상담사입니다.
 이름의 한자·획수·음양오행·수리격·발음을 종합적으로 분석하여
-상세하고 전문적인 이름 분석 리포트를 작성합니다.
+부모가 돈을 내고 읽을 만한, 상세하고 깊이 있는 프리미엄 이름 분석 리포트를 작성합니다.
+
+중요: 각 필드마다 충분한 분량으로 작성하세요. 한 문장짜리 설명은 절대 안 됩니다.
+부모가 "이 리포트를 읽으니 우리 아이의 이름에 대해 깊이 이해하게 되었다"고 느낄 수 있도록 풍성하게 서술하세요.
+
 반드시 JSON 형식으로만 답변하세요. 다른 텍스트는 절대 포함하지 마세요.
 
 ${TONE_SYSTEM}`;
 
-  const userPrompt = `이름 "${name}" (${hanja})에 대한 상세 분석 리포트를 작성해주세요.
+  const strongElementsKo = sajuResult.strongElements.map(e => ELEMENT_KO[e] ?? e).join(', ');
+  const weakElementsKo = sajuResult.weakElements.map(e => ELEMENT_KO[e] ?? e).join(', ');
+
+  const userPrompt = `이름 "${name}" (${hanja})에 대한 프리미엄 상세 분석 리포트를 작성해주세요.
 
 ## 사주 정보
 - 아기 일간(日干, 본질 기운): ${dayMasterKo}
-- 아기 부족 오행: ${lackingKo}
-- 아기 강한 오행: ${sajuResult.strongElements.map(e => ELEMENT_KO[e] ?? e).join(', ')}
+- 아기 부족 오행(용신): ${lackingKo}
+- 아기 강한 오행: ${strongElementsKo}
+- 아기 약한 오행: ${weakElementsKo}
 - 부(父) 주요 오행: ${p1MainKo}
 ${p2MainKo ? `- 모(母) 주요 오행: ${p2MainKo}` : ''}
 
@@ -179,36 +187,71 @@ ${p2MainKo ? `- 모(母) 주요 오행: ${p2MainKo}` : ''}
 - 수리격: ${gradeInfo}
 - 행운 점수(5격 기반): ${strokeAnalysis.luckScore}점
 
-## 분석 지침
-1. yinYangFiveElements: 이름 한자의 오행 구성과 아기 사주 부족 오행 보완 여부를 구체적으로 설명
-2. pronunciationAnalysis: 초성 조합의 조화, 모음 배열의 유연성 분석
-3. meaningBreakdown: 각 한자의 정확한 의미와 사주와의 연관성 설명
-4. sajuFitScore: 0~100점, 사주와의 적합도 (오행 보완 + 음양 균형 + 수리격 종합)
+## 분석 지침 — 각 필드를 풍성하게 작성하세요
+
+### 기존 필드 (더 깊이 있게)
+1. yinYangFiveElements: 오행 구성과 사주 부족 오행 보완 관계를 3-4문장으로 상세 설명
+2. pronunciationAnalysis: 초성·중성·종성 조합의 음운 조화를 2-3문장으로 분석
+3. meaningBreakdown: 각 한자의 의미를 2-3문장으로 풍성하게 (뜻풀이 + 사주와의 연관)
+4. sajuFitScore: 0~100점
 5. parentCompatibility: 부모 오행과의 상생 관계 기반 점수
-6. overallComment: 장점 → 보완점 → 축복 순서로 3~4문장, 따뜻한 마무리 포함
+6. overallComment: 장점 → 보완점 → 이 이름의 운명적 의미 → 축복 순서로 6~8문장, 프리미엄 리포트답게 충실하게
+
+### 신규 확장 필드 (프리미엄 리포트의 핵심)
+7. sajuNarrative: 아이의 사주 원국(原局) 해석. 일간 ${dayMasterKo}의 성격, 강한 오행(${strongElementsKo})이 주는 천부적 재능, 약한 오행(${weakElementsKo})의 보완 필요성을 5~8문장으로 서술. 전문 용어는 쉽게 풀어서 설명하되, 깊이감을 유지.
+8. yongshinAnalysis: 용신(用神) 분석. 이 아이에게 왜 ${lackingKo} 기운이 필요한지, 용신이 보완되면 아이의 삶에 어떤 긍정적 변화가 오는지 3~5문장.
+9. nameEnergyStory: 이름 "${name}"(${hanja})이 아이의 사주를 어떻게 보완하는지 원리를 이야기처럼 서술. 한자의 오행, 획수의 수리, 발음의 기운이 어떻게 사주와 맞물리는지 5~8문장.
+10. characterDeepDive: 각 한자의 심층 분석. 각 글자에 대해:
+    - meaning: 한자의 뜻풀이 (2-3문장)
+    - etymology: 한자의 유래와 원래 형태 설명 (2-3문장, 예: "이 글자는 원래 ~를 뜻하는 상형문자에서…")
+    - culturalNote: 이 한자가 한국·동아시아 문화에서 갖는 의미, 명언, 유명인 이름에 쓰인 사례 등 (2-3문장)
+11. parentCompatibilityNarrative: 엄마(${p2MainKo ?? '미상'})·아빠(${p1MainKo}) 각각과 아이의 오행 관계를 서사적으로 해석. 상생·상극 관계, 부모가 아이에게 해줄 수 있는 역할 등 4~6문장.
+12. blessingLetter: 이 아이만을 위한 축복 편지. "${name}에게"로 시작, 아이의 사주적 특성과 이름의 의미를 엮어 6~10문장의 감동적인 편지. 부모가 읽고 눈물 흘릴 수 있을 정도로 따뜻하게.
+13. personalizedMilestones: 사주 기반 시기별 인생 이정표 4개. 각 항목에 age(시기), icon(이모지 1개), title(제목), description(이 아이의 사주에 맞는 구체적 조언 2-3문장). 반드시 이 아이의 오행 특성에 맞춰 개인화.
 
 JSON으로만 답변:
 {
   "yinYangFiveElements": {
     "elements": ["fire", "water"],
-    "balance": "음양 균형 설명",
-    "recommendation": "오행 보완 관계 설명 (예: 부족한 수(水) 기운을 보완하여 균형을 이룹니다)"
+    "balance": "음양 균형에 대한 상세 설명 3-4문장",
+    "recommendation": "오행 보완 관계 설명 3-4문장"
   },
   "pronunciationAnalysis": {
     "harmony": 88,
     "initialConsonants": ["ㅈ", "ㅇ"],
-    "comment": "초성과 모음 조합의 발음 조화 설명 2문장"
+    "comment": "발음 조화 분석 2-3문장"
   },
   "meaningBreakdown": [
-    {"char": "지", "hanja": "智", "meaning": "지혜로울 지 — 총명하고 사려 깊은 성품을 의미합니다"}
+    {"char": "지", "hanja": "智", "meaning": "지혜로울 지 — 풍성한 뜻풀이 2-3문장"}
   ],
   "sajuFitScore": 88,
   "parentCompatibility": {"mom": 85, "dad": 88, "combined": 86},
-  "overallComment": "장점 설명. 보완점 또는 특징 설명. 아이의 미래를 축복하는 따뜻한 마무리 문장."
+  "overallComment": "프리미엄 종합 소견 6-8문장",
+  "sajuNarrative": "사주 원국 해석 5-8문장",
+  "yongshinAnalysis": "용신 분석 3-5문장",
+  "nameEnergyStory": "이름-사주 연결 서사 5-8문장",
+  "characterDeepDive": [
+    {
+      "char": "지", "hanja": "智",
+      "meaning": "뜻풀이 2-3문장",
+      "etymology": "한자 유래 2-3문장",
+      "culturalNote": "문화적 의미 2-3문장"
+    }
+  ],
+  "parentCompatibilityNarrative": "부모 궁합 서사 4-6문장",
+  "blessingLetter": "축복 편지 6-10문장",
+  "personalizedMilestones": [
+    {"age": "유아기 (0~7세)", "icon": "🌱", "title": "제목", "description": "개인화된 조언 2-3문장"}
+  ]
 }`;
 
   try {
-    const response = await callLLM(systemPrompt, userPrompt, { temperature: 0.7, maxTokens: 1800 });
+    const response = await callLLM(systemPrompt, userPrompt, {
+      temperature: 0.7,
+      maxTokens: 4000,
+      fetchTimeoutMs: 25000,   // 프리미엄 리포트는 긴 응답 필요
+      totalBudgetMs: 50000,    // 총 50초 예산
+    });
     const jsonMatch = response.match(/\{[\s\S]*\}/);
     if (!jsonMatch) throw new Error('Invalid format');
 
@@ -219,6 +262,14 @@ JSON으로만 답변:
       sajuFitScore?: number;
       parentCompatibility?: { mom: number; dad: number; combined: number };
       overallComment?: string;
+      // 확장 필드
+      sajuNarrative?: string;
+      yongshinAnalysis?: string;
+      nameEnergyStory?: string;
+      characterDeepDive?: { char: string; hanja: string; meaning: string; etymology: string; culturalNote: string }[];
+      parentCompatibilityNarrative?: string;
+      blessingLetter?: string;
+      personalizedMilestones?: { age: string; icon: string; title: string; description: string }[];
     };
 
     return {
@@ -245,6 +296,14 @@ JSON으로만 답변:
       parentCompatibility: analysisData.parentCompatibility ?? { mom: 80, dad: 82, combined: 81 },
       overallComment: analysisData.overallComment ??
         `"${name}"은 ${lackingKo} 기운을 보완하여 사주의 균형을 잘 맞추어주는 아름다운 이름입니다. 이 이름과 함께 아이가 건강하고 행복하게 자라나길 바랍니다.`,
+      // 확장 필드
+      sajuNarrative: analysisData.sajuNarrative,
+      yongshinAnalysis: analysisData.yongshinAnalysis,
+      nameEnergyStory: analysisData.nameEnergyStory,
+      characterDeepDive: analysisData.characterDeepDive,
+      parentCompatibilityNarrative: analysisData.parentCompatibilityNarrative,
+      blessingLetter: analysisData.blessingLetter,
+      personalizedMilestones: analysisData.personalizedMilestones,
       eumyangAnalysis: eumyangResult,
       pronunciationOheng: pronOhengResult,
       jawonOheng: jawonResult,

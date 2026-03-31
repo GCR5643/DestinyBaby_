@@ -14,6 +14,7 @@ import type { User } from '@/types';
  */
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const setUser = useUserStore((s) => s.setUser);
+  const setAuthReady = useUserStore((s) => s.setAuthReady);
   const initialized = useRef(false);
 
   useEffect(() => {
@@ -21,15 +22,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     // 인증 유저 → Zustand 동기화 헬퍼
     const syncUser = async (authUser: { id: string; email?: string | null; user_metadata?: Record<string, string> }) => {
-      const { data: profile } = await supabase
-        .from('users')
-        .select('*')
-        .eq('id', authUser.id)
-        .single();
+      try {
+        const { data: profile } = await supabase
+          .from('users')
+          .select('*')
+          .eq('id', authUser.id)
+          .single();
 
-      if (profile) {
-        setUser(profile as User);
-      } else {
+        if (profile) {
+          setUser(profile as User);
+        } else {
+          setUser({
+            id: authUser.id,
+            email: authUser.email || '',
+            nickname: authUser.user_metadata?.full_name || authUser.user_metadata?.name || '사용자',
+            credits: 0,
+            total_pulls: 0,
+            destiny_fragments: 0,
+          } as User);
+        }
+      } catch {
+        // DB 조회 실패 시에도 최소한의 유저 정보로 세팅
         setUser({
           id: authUser.id,
           email: authUser.email || '',
@@ -41,34 +54,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     };
 
-    // 초기 세션 확인 — getSession()으로 refresh token 자동 갱신 트리거
-    const initSession = async () => {
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session?.user) {
-          await syncUser(session.user);
-        } else {
-          setUser(null);
-        }
-      } catch {
-        // 네트워크 에러 시: persist된 기존 user 유지 (null로 덮어쓰지 않음)
-        if (!initialized.current) {
-          console.warn('[AuthProvider] 세션 확인 실패, 기존 상태 유지');
-        }
-      } finally {
-        initialized.current = true;
-      }
-    };
-
-    initSession();
-
-    // 인증 상태 변경 리스너 — SIGNED_IN + TOKEN_REFRESHED 모두 처리
+    // onAuthStateChange 단일 진입점 — INITIAL_SESSION으로 초기 세션 확인
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        if ((event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') && session?.user) {
+        if (session?.user) {
           await syncUser(session.user);
-        } else if (event === 'SIGNED_OUT') {
+        } else if (event === 'INITIAL_SESSION' || event === 'SIGNED_OUT') {
           setUser(null);
+        }
+
+        if (!initialized.current) {
+          initialized.current = true;
+          setAuthReady(true);
         }
       }
     );
@@ -76,7 +73,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => {
       subscription.unsubscribe();
     };
-  }, [setUser]);
+  }, [setUser, setAuthReady]);
 
   return <>{children}</>;
 }
