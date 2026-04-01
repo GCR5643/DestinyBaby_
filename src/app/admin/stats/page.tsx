@@ -168,8 +168,8 @@ export default function StatsPage() {
         if (grade && grade in dist) dist[grade]++;
       }
       setGradeData(dist);
-    } catch {
-      // fallback: keep zeros
+    } catch (error) {
+      console.error('[AdminStats] 통계 로드 실패:', error);
     } finally {
       setLoading(false);
     }

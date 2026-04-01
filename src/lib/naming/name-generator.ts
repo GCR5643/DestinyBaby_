@@ -178,14 +178,16 @@ function validateAndCorrectNames(
       console.warn(`[naming] LLM이 유효하지 않은 한자를 생성: ${n.hanja} (이름: ${n.name})`);
       continue;
     }
+    // 4) DB에 없는 한자 포함 시 차단 — 획수 추정은 오행/수리 오류로 이어짐
     const notInDb = chars.filter(c => getHanjaEntry(c) === null);
     if (notInDb.length > 0) {
-      console.warn(`[naming] DB에 없는 한자 포함(유니코드 추정값 사용): ${notInDb.join(', ')} (이름: ${n.name})`);
+      console.warn(`[naming] DB에 없는 한자 포함 이름 차단: ${notInDb.join(', ')} (이름: ${n.name})`);
+      continue;
     }
-    // 4) 불용한자 필터 — hard 불용한자가 포함된 이름 제외
+    // 5) 불용한자 필터 — hard 불용한자가 포함된 이름 제외
     const hasBulyong = chars.some(c => isBulyongHard(c));
     if (hasBulyong) {
-      console.warn(`[naming] 불용한자 포함 이름 필터링: "${n.name}" (${n.hanja})`);
+      console.warn(`[naming] 불용한자(hard) 포함 이름 필터링: "${n.name}" (${n.hanja})`);
       continue;
     }
     // DB 기준 실제 획수 합계 (향후 수리격 계산에 사용)

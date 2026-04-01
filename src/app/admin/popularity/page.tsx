@@ -53,8 +53,8 @@ export default function AdminPopularityPage() {
             lastSyncedAt: data.last_synced_at ?? DEFAULT_CONFIG.lastSyncedAt,
           });
         }
-      } catch {
-        // table may not exist — use defaults
+      } catch (error) {
+        console.error('[AdminPopularity] 유행지수 설정 로드 실패:', error);
       } finally {
         setLoading(false);
       }
@@ -82,8 +82,8 @@ export default function AdminPopularityPage() {
         kosis_api_enabled: config.kosisApiEnabled,
         last_synced_at: config.lastSyncedAt,
       });
-    } catch {
-      // table may not exist — ignore
+    } catch (error) {
+      console.error('[AdminPopularity] 유행지수 설정 저장 실패:', error);
     }
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);

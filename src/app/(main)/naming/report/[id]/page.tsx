@@ -496,7 +496,7 @@ export default function NamingReportPage({ params }: { params: { id: string } })
             className="bg-gradient-to-br from-primary-50 to-blue-50 rounded-2xl p-6 border border-primary-100"
           >
             <h2 className="font-bold text-gray-800 mb-1">🌊 이름이 사주를 완성하는 원리</h2>
-            <p className="text-xs text-gray-400 mb-4">"{name}" 이라는 이름이 아이의 사주에 어떤 기운을 더해주는지</p>
+            <p className="text-xs text-gray-400 mb-4">&ldquo;{name}&rdquo; 이라는 이름이 아이의 사주에 어떤 기운을 더해주는지</p>
             <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-line">{report.nameEnergyStory}</p>
           </motion.div>
         )}
@@ -965,6 +965,15 @@ export default function NamingReportPage({ params }: { params: { id: string } })
             🎴 지금 바로 뽑기
           </button>
         </motion.div>
+
+        {/* 면책 문구 */}
+        <div className="p-4 bg-gray-50 rounded-2xl border border-gray-100">
+          <p className="text-xs text-gray-400 leading-relaxed text-center">
+            본 서비스의 이름 분석은 전통 성명학 원리와 AI를 결합한 참고 자료입니다.
+            최종 작명 시 전문 작명소 상담을 병행하시기를 권장합니다.
+            AI 분석 결과에 대한 법적 책임은 지지 않습니다.
+          </p>
+        </div>
 
       </div>
     </div>

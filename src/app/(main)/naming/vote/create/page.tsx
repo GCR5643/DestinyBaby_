@@ -112,7 +112,8 @@ export default function VoteCreatePage() {
       await navigator.clipboard.writeText(shareUrl);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
-    } catch {
+    } catch (error) {
+      console.error('[VoteCreate] 투표 세션 생성 실패:', error);
       /* ignore */
     }
   }

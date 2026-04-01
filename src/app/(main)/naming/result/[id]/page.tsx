@@ -247,7 +247,7 @@ export default function NamingResultPage({ params }: { params: { id: string } })
         if (parsed.surnameHanja) setSurnameHanja(parsed.surnameHanja);
         // 부족 오행은 서버에서 계산하지만, 클라이언트에선 SuggestedName의 element로 추정
       }
-    } catch { /* ignore */ }
+    } catch (error) { console.error('[NamingResult] 처리 실패:', error); }
   }, []);
 
   // 재생성 횟수 제한: 비로그인 3회, 로그인 5회
@@ -361,7 +361,8 @@ export default function NamingResultPage({ params }: { params: { id: string } })
             return;
           }
         }
-      } catch {
+      } catch (error) {
+        console.error('[NamingResult] 처리 실패:', error);
         // sessionStorage 파싱 실패 시 fallback
       }
     }
@@ -496,7 +497,8 @@ export default function NamingResultPage({ params }: { params: { id: string } })
       });
       const url = `${window.location.origin}/naming/vote/${result.shareCode}`;
       setVoteUrl(url);
-    } catch {
+    } catch (error) {
+      console.error('[NamingResult] 처리 실패:', error);
       showToast('투표 링크 생성에 실패했어요. 다시 시도해주세요.');
     } finally {
       setIsCreatingVote(false);
@@ -1014,6 +1016,15 @@ export default function NamingResultPage({ params }: { params: { id: string } })
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* 면책 문구 */}
+      <div className="mx-4 mb-6 p-4 bg-gray-50 rounded-2xl border border-gray-100">
+        <p className="text-xs text-gray-400 leading-relaxed text-center">
+          본 서비스의 이름 추천은 전통 성명학 원리와 AI를 결합한 참고 자료입니다.
+          최종 작명 시 전문 작명소 상담을 병행하시기를 권장합니다.
+          AI 분석 결과에 대한 법적 책임은 지지 않습니다.
+        </p>
+      </div>
 
       {/* Toast */}
       <AnimatePresence>

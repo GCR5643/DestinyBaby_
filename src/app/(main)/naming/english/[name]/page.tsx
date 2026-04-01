@@ -52,8 +52,8 @@ export default function EnglishNamePage({ params }: { params: { name: string } }
         customPrompt: selectedOptions.includes('custom') ? customPrompt : undefined,
       });
       setResults(suggestions);
-    } catch {
-      // Fallback results
+    } catch (error) {
+      console.error('[EnglishName] 영어 이름 생성 실패:', error);
       setResults([
         { englishName: 'Celeste', matchType: 'similar_meaning', reason: '하늘처럼 맑고 아름다운 의미', pronunciation: '셀레스트' },
         { englishName: 'Luna', matchType: 'similar_meaning', reason: '달처럼 빛나는 이름', pronunciation: '루나' },

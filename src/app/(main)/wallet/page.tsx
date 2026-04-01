@@ -35,17 +35,19 @@ export default function WalletPage() {
     { enabled: !!user || SKIP_AUTH }
   );
 
-  // Purchase mutation
-  const purchase = trpc.fragments.purchase.useMutation({
+  // 결제 주문 생성 → 체크아웃 페이지로 이동
+  const createOrder = trpc.fragments.createOrder.useMutation({
     onSuccess: (data) => {
-      if (data.success) {
-        updateFragments(data.fragments || 0);
-        refetchBalance();
-        alert(`💎 ${data.fragments}개 조각이 충전되었습니다!`);
-      }
+      const params = new URLSearchParams({
+        orderId: data.orderId,
+        amount: String(data.amount),
+        orderName: data.orderName,
+        customerKey: user?.id || 'anonymous',
+      });
+      router.push(`/wallet/checkout?${params.toString()}`);
     },
     onError: () => {
-      alert('구매 요청 중 오류가 발생했습니다.');
+      alert('주문 생성에 실패했습니다. 다시 시도해주세요.');
     },
   });
 
@@ -124,11 +126,11 @@ export default function WalletPage() {
                   </div>
                 </div>
                 <button
-                  onClick={() => purchase.mutate({ packageId: pack.id })}
-                  disabled={purchase.isPending}
+                  onClick={() => createOrder.mutate({ packageId: pack.id })}
+                  disabled={createOrder.isPending}
                   className="bg-purple-500 text-white py-2.5 px-5 rounded-xl font-bold text-sm hover:bg-purple-600 transition disabled:opacity-50"
                 >
-                  {pack.price.toLocaleString()}원
+                  {createOrder.isPending ? '...' : `${pack.price.toLocaleString()}원`}
                 </button>
               </motion.div>
             ))}

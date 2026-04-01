@@ -66,8 +66,8 @@ export default function UsersPage() {
         color: colorForId(row.id),
       }));
       setUsers(mapped);
-    } catch {
-      // fallback: keep empty list
+    } catch (error) {
+      console.error('[AdminUsers] 사용자 목록 로드 실패:', error);
     } finally {
       setLoading(false);
     }

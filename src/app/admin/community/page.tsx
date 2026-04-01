@@ -64,8 +64,8 @@ export default function CommunityPage() {
       });
       setPosts(mapped);
       setTodayNew(newToday);
-    } catch {
-      // fallback: keep empty list
+    } catch (error) {
+      console.error('[AdminCommunity] 게시물 목록 로드 실패:', error);
     } finally {
       setLoading(false);
     }

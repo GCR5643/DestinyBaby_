@@ -160,8 +160,8 @@ export default function BirthDatePage() {
         score: d.score,
         source: 'recommendation',
       });
-    } catch {
-      // 비로그인 사용자는 저장 실패해도 로컬 상태로만 표시
+    } catch (error) {
+      console.error('[Birthdate] 생년월일 저장 실패:', error);
     }
     setSavedDates(prev => [...prev, d.date]);
   };

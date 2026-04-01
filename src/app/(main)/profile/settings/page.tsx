@@ -30,7 +30,8 @@ export default function ProfileSettingsPage() {
           .eq('id', authUser.id);
       }
       alert('저장됨');
-    } catch {
+    } catch (error) {
+      console.error('[ProfileSettings] 프로필 업데이트 실패:', error);
       alert('저장 실패. 잠시 후 다시 시도해주세요.');
     }
   };
@@ -46,7 +47,8 @@ export default function ProfileSettingsPage() {
       const { error } = await supabase.auth.resetPasswordForEmail(email);
       if (error) throw error;
       alert('이메일로 비밀번호 재설정 링크를 발송했습니다.');
-    } catch {
+    } catch (error) {
+      console.error('[ProfileSettings] 비밀번호 재설정 이메일 발송 실패:', error);
       alert('비밀번호 재설정 이메일 발송에 실패했습니다. 잠시 후 다시 시도해주세요.');
     }
   };

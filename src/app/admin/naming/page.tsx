@@ -96,8 +96,8 @@ export default function AdminNamingPage() {
           .slice(0, 5)
           .map(([name, val]) => ({ name, hanja: val.hanja, count: val.count }));
         setTopNames(sorted);
-      } catch {
-        // fallback: keep zeros
+      } catch (error) {
+        console.error('[AdminNaming] 작명 통계 로드 실패:', error);
       } finally {
         setLoading(false);
       }

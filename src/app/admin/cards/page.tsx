@@ -55,8 +55,8 @@ export default function CardsPage() {
         .order('id');
       if (error) throw error;
       setCards((data ?? []) as Card[]);
-    } catch {
-      // fallback: keep empty list
+    } catch (error) {
+      console.error('[AdminCards] 카드 목록 로드 실패:', error);
     } finally {
       setLoading(false);
     }

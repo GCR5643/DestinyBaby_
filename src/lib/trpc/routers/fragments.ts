@@ -49,7 +49,43 @@ export const fragmentsRouter = createTRPCRouter({
       }
     }),
 
-  // 운명의 조각 구매
+  // 결제 주문 생성 (Toss 위젯 호출 전)
+  createOrder: protectedProcedure
+    .input(z.object({
+      packageId: z.enum(['handful', 'pouch', 'pouch_large', 'golden_jar']),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const packages = {
+        handful:     { fragments: 10,  price: 1200,  name: '한 줌' },
+        pouch:       { fragments: 30,  price: 3000,  name: '작은 보따리' },
+        pouch_large: { fragments: 100, price: 8000,  name: '복주머니' },
+        golden_jar:  { fragments: 300, price: 20000, name: '황금 항아리' },
+      };
+      const pkg = packages[input.packageId];
+      const orderId = `frag_${ctx.user.id.slice(0, 8)}_${Date.now()}`;
+
+      const { error } = await ctx.supabase.from('payment_orders').insert({
+        id: orderId,
+        user_id: ctx.user.id,
+        pack_id: input.packageId,
+        credits: pkg.fragments,
+        amount: pkg.price,
+        status: 'pending',
+      });
+
+      if (error) {
+        console.error('[fragments] createOrder failed:', error);
+        throw new Error('주문 생성에 실패했습니다.');
+      }
+
+      return {
+        orderId,
+        amount: pkg.price,
+        orderName: `운명의 조각 - ${pkg.name} (${pkg.fragments}개)`,
+      };
+    }),
+
+  // 레거시: 결제 없이 조각 지급 (테스트/어드민 전용)
   purchase: protectedProcedure
     .input(z.object({
       packageId: z.enum(['handful', 'pouch', 'pouch_large', 'golden_jar']),
@@ -64,7 +100,6 @@ export const fragmentsRouter = createTRPCRouter({
       const pkg = packages[input.packageId];
       const orderId = `frag_order_${ctx.user.id}_${Date.now()}`;
 
-      // DB 함수 호출 시도
       const { error: rpcError } = await ctx.supabase.rpc('add_fragments', {
         p_user_id: ctx.user.id,
         p_amount: pkg.fragments,
@@ -76,7 +111,6 @@ export const fragmentsRouter = createTRPCRouter({
 
       if (rpcError) {
         console.warn('[fragments] rpc add_fragments failed, using manual fallback:', rpcError);
-        // 수동 폴백: 잔액 조회 후 업데이트
         try {
           const { data: user } = await ctx.supabase
             .from('users')
@@ -102,7 +136,6 @@ export const fragmentsRouter = createTRPCRouter({
           console.warn('[fragments] manual fallback failed:', e);
         }
       } else {
-        // rpc 성공 시 최신 잔액 조회
         try {
           const { data: user } = await ctx.supabase
             .from('users')

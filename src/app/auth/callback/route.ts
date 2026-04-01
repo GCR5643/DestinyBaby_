@@ -62,13 +62,13 @@ export async function GET(request: NextRequest) {
                 type: 'signup_bonus',
                 description: '회원가입 축하 보너스 🎉',
               });
-            } catch {
-              // table may not exist yet
+            } catch (error) {
+              console.error('[AuthCallback] fragment_transactions 삽입 실패:', error);
             }
           }
         }
-      } catch {
-        // 보너스 지급 실패해도 로그인은 진행
+      } catch (error) {
+        console.error('[AuthCallback] 회원가입 보너스 지급 실패:', error);
       }
 
       return response;

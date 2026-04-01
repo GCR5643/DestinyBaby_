@@ -17,8 +17,8 @@ export async function createClient() {
             cookiesToSet.forEach(({ name, value, options }) =>
               cookieStore.set(name, value, options)
             );
-          } catch {
-            // Server component context — ignore
+          } catch (error) {
+            console.error('[SupabaseServer] 쿠키 설정 실패:', error);
           }
         },
       },

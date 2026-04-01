@@ -55,7 +55,8 @@ export default function ProfilePage() {
     if (stored) {
       try {
         setChildren(JSON.parse(stored));
-      } catch {
+      } catch (error) {
+        console.error('[Profile] 자녀 정보 로드 실패:', error);
         localStorage.removeItem('my-children');
       }
     }

@@ -85,8 +85,8 @@ export default function AdminPage() {
           { label: '활성 유저', value: userCount.toLocaleString(), change: '' },
           { label: '총 카드 뽑기', value: totalPulls.toLocaleString(), change: '' },
         ]);
-      } catch {
-        // fallback: keep the placeholder values
+      } catch (error) {
+        console.error('[AdminDashboard] 통계 로드 실패:', error);
       }
     };
 

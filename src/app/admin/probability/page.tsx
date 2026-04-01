@@ -72,8 +72,8 @@ export default function ProbabilityPage() {
       setUrPity(newPity.UR);
       setSssPity(newPity.SSS);
       setRowIds(ids);
-    } catch {
-      // fallback: use defaults
+    } catch (error) {
+      console.error('[AdminProbability] 가챠 확률 설정 로드 실패:', error);
     } finally {
       setLoading(false);
     }

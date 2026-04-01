@@ -7,7 +7,8 @@ export async function middleware(request: NextRequest) {
       return NextResponse.next();
     }
     return await updateSession(request);
-  } catch {
+  } catch (error) {
+    console.error('[Middleware] 세션 업데이트 실패:', error);
     return NextResponse.next();
   }
 }
