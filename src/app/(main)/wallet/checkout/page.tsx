@@ -1,13 +1,13 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { Suspense, useEffect, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { loadPaymentWidget, type PaymentWidgetInstance } from '@tosspayments/payment-widget-sdk';
 import { ArrowLeft } from 'lucide-react';
 
 const CLIENT_KEY = process.env.NEXT_PUBLIC_TOSS_CLIENT_KEY || 'sb_publishable_WDe1riUtngM_5nn9rOLwdA_tNDvlo40';
 
-export default function CheckoutPage() {
+function CheckoutContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const orderId = searchParams.get('orderId') || '';
@@ -73,7 +73,6 @@ export default function CheckoutPage() {
       </div>
 
       <div className="max-w-lg mx-auto px-4 mt-6">
-        {/* 주문 요약 */}
         <div className="bg-white rounded-2xl p-5 shadow-sm mb-4">
           <h2 className="font-bold text-gray-800 mb-2">주문 정보</h2>
           <div className="flex items-center justify-between text-sm">
@@ -82,13 +81,11 @@ export default function CheckoutPage() {
           </div>
         </div>
 
-        {/* Toss 결제 위젯 영역 */}
         <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
           <div id="payment-methods" className="min-h-[300px]" />
           <div id="payment-agreement" />
         </div>
 
-        {/* 결제 버튼 */}
         <button
           onClick={handlePayment}
           disabled={!isReady || isProcessing}
@@ -109,5 +106,13 @@ export default function CheckoutPage() {
         </p>
       </div>
     </div>
+  );
+}
+
+export default function CheckoutPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-ivory flex items-center justify-center"><p>로딩중...</p></div>}>
+      <CheckoutContent />
+    </Suspense>
   );
 }

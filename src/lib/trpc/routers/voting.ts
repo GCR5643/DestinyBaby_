@@ -108,14 +108,15 @@ export const votingRouter = createTRPCRouter({
       };
     }),
 
-  // 투표 제출 (복수 선택 + 덕담 + 익명)
+  // 투표 제출 (복수 선택 + 덕담 + 익명, 핑거프린트 기반 중복 방지)
   submitVote: publicProcedure
     .input(z.object({
       shareCode: z.string(),
       selectedNames: z.array(z.string()).min(1),
       voterName: z.string().optional(),
       isAnonymous: z.boolean().optional().default(false),
-      blessingMessage: z.string().optional(),
+      blessingMessage: z.string().max(500).optional(),
+      fingerprint: z.string().max(64).optional(),
     }))
     .mutation(async ({ ctx, input }) => {
       // 세션 조회
@@ -126,6 +127,20 @@ export const votingRouter = createTRPCRouter({
         .single();
 
       if (!session) throw new Error('투표 세션을 찾을 수 없습니다');
+
+      // 핑거프린트 기반 중복 투표 방지
+      if (input.fingerprint) {
+        const { data: existing } = await ctx.supabase
+          .from('vote_submissions')
+          .select('id')
+          .eq('session_id', session.id)
+          .eq('voter_fingerprint', input.fingerprint)
+          .limit(1);
+
+        if (existing && existing.length > 0) {
+          throw new Error('이미 이 세션에 투표하셨습니다');
+        }
+      }
 
       // 만료 체크
       const expiresAt = (session as { id: string; expires_at?: string }).expires_at;
@@ -141,6 +156,7 @@ export const votingRouter = createTRPCRouter({
           voter_name: input.isAnonymous ? null : (input.voterName || null),
           is_anonymous: input.isAnonymous,
           blessing_message: input.blessingMessage || null,
+          voter_fingerprint: input.fingerprint || null,
         })
         .select('id')
         .single();

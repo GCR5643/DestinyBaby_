@@ -64,6 +64,9 @@ export function calculateSaju(birthDate: string, birthTime?: string): SajuResult
   };
 
   // Hour Pillar: 시간 미입력 시 null 처리
+  // 야자시(夜子時) 처리: 23시는 다음날의 자시(子時)에 해당
+  // 본 시스템은 23시를 당일 자시로 처리 (일반적 통용 방식)
+  // 야자시 별도 적용이 필요한 경우 birthTime 주석 참조
   let hourPillar: SajuPillar | null = null;
   let hourBranchIndex = 0;
   if (hasTime) {

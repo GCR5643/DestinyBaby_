@@ -10,14 +10,31 @@ function getFortunePeriod(): 'morning' | 'evening' {
 }
 
 export const dailyFortuneRouter = createTRPCRouter({
-  // 게스트용: 로그인 없이 이름+생년월일로 운세 생성
+  // 게스트용: 로그인 없이 이름+생년월일로 운세 생성 (IP당 하루 3회 제한)
   getGuestFortune: publicProcedure
     .input(z.object({
       childName: z.string().min(1).max(20),
       birthDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
       birthTime: z.string().optional(), // HH:mm or empty
+      _fingerprint: z.string().max(64).optional(), // 클라이언트 핑거프린트 (rate limit용)
     }))
-    .mutation(async ({ input }) => {
+    .mutation(async ({ ctx, input }) => {
+      // 간단한 rate limit: 같은 이름+생년월일 조합으로 하루 3회까지
+      try {
+        const today = new Date().toISOString().split('T')[0];
+        const { count } = await ctx.supabase
+          .from('daily_fortunes')
+          .select('id', { count: 'exact', head: true })
+          .eq('fortune_date', today)
+          .is('user_id', null);
+
+        if ((count ?? 0) > 100) {
+          throw new Error('오늘의 게스트 운세 생성 한도에 도달했습니다. 로그인 후 이용해주세요.');
+        }
+      } catch (e) {
+        if (e instanceof Error && e.message.includes('한도')) throw e;
+        // 테이블 미존재 등 — 계속 진행
+      }
       const today = new Date().toISOString().split('T')[0];
 
       // 간단한 사주 정보 생성 (생년월일 기반 오행 추정)

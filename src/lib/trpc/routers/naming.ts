@@ -364,8 +364,10 @@ export const namingRouter = createTRPCRouter({
       return { saved: true, reason: null };
     }),
 
+  // 작명 결과 조회: 공유 목적으로 publicProcedure 유지하되,
+  // RLS에서 request_id 기반 소유권 검증이 이루어짐
   getResult: publicProcedure
-    .input(z.object({ id: z.string() }))
+    .input(z.object({ id: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
       const { data } = await ctx.supabase
         .from('naming_results')
@@ -375,8 +377,9 @@ export const namingRouter = createTRPCRouter({
       return data as { id: string; suggested_names: import('@/types').SuggestedName[]; request_id: string; created_at: string } | null;
     }),
 
+  // 리포트 조회: RLS(소유자 전용)로 보호됨
   getReport: publicProcedure
-    .input(z.object({ id: z.string() }))
+    .input(z.object({ id: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
       const { data } = await ctx.supabase
         .from('naming_reports')
