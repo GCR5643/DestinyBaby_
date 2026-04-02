@@ -1,7 +1,8 @@
 /**
- * 대법원 전자가족관계등록시스템 기반 출생아 이름 통계
- * 최신 데이터: https://baby-name.kr (2024년 기준, 전자가족관계시스템 원본)
- * 누적 데이터: https://github.com/randkid/name (2008-2019 누적)
+ * 출생아 이름 통계 데이터
+ * 누적 데이터 (2008-2019): 대법원 전자가족관계시스템 (github.com/randkid/name)
+ * 최신 데이터 (2024): 대법원 전자가족관계시스템 (baby-name.kr)
+ * 참고: KOSIS Open API 연동은 키 만료/엔드포인트 변경으로 비활성화 (2026-04-02 확인)
  */
 
 export interface NameStat {
@@ -550,28 +551,21 @@ export function getPopularityRank(name: string, gender?: 'M' | 'F'): number | nu
   return foundHist ? foundHist.rank : null;
 }
 
-/**
- * 이름의 유행 점수 (0-100, 높을수록 유행)
- * 2024 기준: 상위 10위: 100점, 상위 20위: 90점, 상위 50위: 80점
- * 누적 기준: 상위 50위: 60점, 상위 100위: 40점, 상위 200위: 20점
- */
 export function getPopularityScore(name: string, gender?: 'M' | 'F'): number {
   // 2024 최신 데이터 우선
   const list2024 = gender === 'M' ? MALE_TOP_50_2024 : gender === 'F' ? FEMALE_TOP_50_2024 : ALL_2024;
   const found2024 = list2024.find(n => n.name === name);
   if (found2024) {
-    if (found2024.rank <= 10) return 100;
-    if (found2024.rank <= 20) return 90;
-    return 80;
+    // 연속 점수: 1위=100, 50위=70, 선형 보간
+    return Math.round(100 - (found2024.rank - 1) * (30 / 49));
   }
 
-  // 누적 데이터 fallback (과거 유행이므로 점수 낮게)
+  // 누적 데이터 fallback (과거 유행이므로 최대 65점)
   const listHist = gender === 'M' ? MALE_TOP_200 : gender === 'F' ? FEMALE_TOP_200 : [...MALE_TOP_200, ...FEMALE_TOP_200];
   const foundHist = listHist.find(n => n.name === name);
   if (foundHist) {
-    if (foundHist.rank <= 50) return 60;
-    if (foundHist.rank <= 100) return 40;
-    return 20;
+    // 1위=65, 200위=10, 선형 보간
+    return Math.round(65 - (foundHist.rank - 1) * (55 / 199));
   }
 
   return 0;
@@ -614,6 +608,11 @@ export interface KosisNameStat {
   year: number;
 }
 
+/**
+ * 이름 통계 데이터 반환 (로컬 하드코딩 데이터)
+ * 출처: 대법원 전자가족관계시스템 2024년 기준 (baby-name.kr)
+ * 참고: KOSIS API는 키 만료/엔드포인트 변경으로 사용 불가 (2026-04 확인)
+ */
 export async function fetchKosisNameStats(): Promise<KosisNameStat[]> {
   return [...MALE_TOP_50_2024, ...FEMALE_TOP_50_2024].map(n => ({
     name: n.name,
@@ -624,18 +623,20 @@ export async function fetchKosisNameStats(): Promise<KosisNameStat[]> {
 }
 
 export function getNationalTrendPercent(name: string): number {
-  // 2024 최신 데이터와 누적 데이터 비교로 트렌드 추정
-  const rank2024 = MALE_TOP_50_2024.find(n => n.name === name)?.rank
-    ?? FEMALE_TOP_50_2024.find(n => n.name === name)?.rank;
-  const rankHist = MALE_TOP_200.find(n => n.name === name)?.rank
-    ?? FEMALE_TOP_200.find(n => n.name === name)?.rank;
+  const stat2024 = MALE_TOP_50_2024.find(n => n.name === name)
+    ?? FEMALE_TOP_50_2024.find(n => n.name === name);
+  const statHist = MALE_TOP_200.find(n => n.name === name)
+    ?? FEMALE_TOP_200.find(n => n.name === name);
 
-  if (rank2024 && rankHist) {
-    // 순위가 올라갔으면 양수 (인기 상승), 내려갔으면 음수
-    return rankHist - rank2024;
+  if (stat2024 && statHist) {
+    // 누적 데이터의 연평균 추정 (2008-2019 = 12년)
+    const annualAvgHist = statHist.count / 12;
+    // 2024 단년도 count와 비교
+    if (annualAvgHist === 0) return 100;
+    return Math.round(((stat2024.count - annualAvgHist) / annualAvgHist) * 100);
   }
-  if (rank2024 && !rankHist) return 50; // 신규 인기 이름
-  if (!rank2024 && rankHist) return -20; // 인기 하락
+  if (stat2024 && !statHist) return 100; // 신규 트렌드 이름
+  if (!stat2024 && statHist) return -30; // 인기 하락
   return 0;
 }
 

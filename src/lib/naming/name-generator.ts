@@ -3,6 +3,7 @@ import { callLLM } from '@/lib/llm/llm-client';
 import { getHanjaEntry, getHanjaStrokes } from '@/lib/naming/hanja-strokes';
 import { recommendJawonHanja } from '@/lib/naming/jawon-oheng';
 import { isBulyongHard } from '@/lib/naming/bulyong-hanja';
+import { getPopularityScore } from '@/lib/naming/kosis-popularity';
 
 // ── 자원오행 추천 한자를 LLM 프롬프트용 문자열로 변환 ──
 function getJawonRecommendation(element: Element, gender?: string): string {
@@ -426,6 +427,22 @@ ${input.preferences?.avoidChars?.length ? `- 피할 글자: ${input.preferences.
       } catch {
         // 재시도 실패 시 기존 검증 결과만 사용
       }
+    }
+
+    // 스타일별 유행도 정렬
+    const style = input.trendLevel ?? 'balanced';
+    if (style === 'trendy') {
+      validated.sort((a, b) => {
+        const scoreA = getPopularityScore(a.name);
+        const scoreB = getPopularityScore(b.name);
+        return scoreB - scoreA; // 인기 높은 순
+      });
+    } else if (style === 'classic') {
+      validated.sort((a, b) => {
+        const scoreA = getPopularityScore(a.name);
+        const scoreB = getPopularityScore(b.name);
+        return scoreA - scoreB; // 독특한 이름 우선
+      });
     }
 
     // 최소 1개라도 반환, 최대 5개

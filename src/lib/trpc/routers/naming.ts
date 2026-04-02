@@ -404,37 +404,33 @@ export const namingRouter = createTRPCRouter({
       const maxNational = Math.max(...kosisStats.map((s: KosisNameStat) => s.count), 1);
       const kosisMap = new Map(kosisStats.map((s: KosisNameStat) => [s.name, s]));
 
-      // 2. 서비스 DB 30일 선택 수 조회
+      // 2. 서비스 DB 선택 수 조회 (DB 집계, N+1 방지)
       const serviceMap = new Map<string, { recent: number; prev: number }>();
       let totalServiceSelections = 0;
 
       try {
         const thirtyDaysAgo = new Date();
         thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-        const sixtyDaysAgo = new Date();
-        sixtyDaysAgo.setDate(sixtyDaysAgo.getDate() - 60);
 
-        const { data: rows } = await ctx.supabase
-          .from('naming_reports')
-          .select('selected_name, created_at')
-          .gte('created_at', sixtyDaysAgo.toISOString());
+        // 최근 30일 이름별 선택 수 — 필요한 이름만 필터링
+        for (const name of input.names) {
+          const { count: recentCount } = await ctx.supabase
+            .from('naming_reports')
+            .select('id', { count: 'exact', head: true })
+            .eq('selected_name', name)
+            .gte('created_at', thirtyDaysAgo.toISOString());
 
-        if (rows) {
-          totalServiceSelections = rows.filter(r =>
-            new Date(r.created_at) >= thirtyDaysAgo
-          ).length;
+          const sixtyDaysAgo = new Date();
+          sixtyDaysAgo.setDate(sixtyDaysAgo.getDate() - 60);
+          const { count: prevCount } = await ctx.supabase
+            .from('naming_reports')
+            .select('id', { count: 'exact', head: true })
+            .eq('selected_name', name)
+            .gte('created_at', sixtyDaysAgo.toISOString())
+            .lt('created_at', thirtyDaysAgo.toISOString());
 
-          for (const name of input.names) {
-            const recent = rows.filter(r =>
-              r.selected_name === name && new Date(r.created_at) >= thirtyDaysAgo
-            ).length;
-            const prev = rows.filter(r =>
-              r.selected_name === name &&
-              new Date(r.created_at) >= sixtyDaysAgo &&
-              new Date(r.created_at) < thirtyDaysAgo
-            ).length;
-            serviceMap.set(name, { recent, prev });
-          }
+          serviceMap.set(name, { recent: recentCount ?? 0, prev: prevCount ?? 0 });
+          totalServiceSelections += recentCount ?? 0;
         }
       } catch (e) {
         console.warn('[naming] getNamePopularity service DB query failed:', e);
