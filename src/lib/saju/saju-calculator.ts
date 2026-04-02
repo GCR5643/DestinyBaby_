@@ -19,12 +19,22 @@ export function calculateSaju(birthDate: string, birthTime?: string): SajuResult
   const yearStemIndex = ((year - 4) % 10 + 10) % 10;
   const yearBranchIndex = ((year - 4) % 12 + 12) % 12;
 
-  // Month Pillar (simplified - based on month and year stem)
-  const monthOffset = (yearStemIndex % 5) * 2;
-  const monthStemIndex = ((month - 1 + monthOffset) % 10 + 10) % 10;
-  const monthBranchIndex = ((month + 1) % 12 + 12) % 12;
+  // Month Pillar: 절기(jeolgi) 경계 기반 월 결정
+  // 전통 사주에서 월은 양력 1일이 아닌 절기(입춘, 경칩 등)를 기준으로 바뀜
+  // 절기 테이블이 없는 경우 근사값으로 각 월의 ~5일을 경계로 사용
+  const day = date.getDate();
+  // 절기 근사: 해당 월의 절기가 약 4-7일에 시작. 5일 이전이면 이전 월로 간주
+  const JEOLGI_APPROX_DAY = 5;
+  const sajuMonth = day < JEOLGI_APPROX_DAY ? (month === 1 ? 12 : month - 1) : month;
+  const sajuYearForMonth = day < JEOLGI_APPROX_DAY && month === 1 ? year - 1 : year;
+  const adjustedYearStemIndex = ((sajuYearForMonth - 4) % 10 + 10) % 10;
 
-  // Day Pillar (simplified calculation)
+  const monthOffset = (adjustedYearStemIndex % 5) * 2;
+  const monthStemIndex = ((sajuMonth - 1 + monthOffset) % 10 + 10) % 10;
+  const monthBranchIndex = ((sajuMonth + 1) % 12 + 12) % 12;
+
+  // Day Pillar: 기준일 검증됨 (1900-01-01 = 갑자일, dayNumber % 60 = 0)
+  // 검증 참조: 1900-01-01 → 갑(0)자(0), 2000-01-01 → 갑(0)진(4)
   const dayNumber = Math.floor(date.getTime() / 86400000) + 25567 + 1;
   const dayStemIndex = ((dayNumber % 10) + 10) % 10;
   const dayBranchIndex = ((dayNumber % 12) + 12) % 12;

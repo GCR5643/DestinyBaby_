@@ -6,18 +6,17 @@ import { ArrowLeft } from 'lucide-react';
 import { trpc } from '@/lib/trpc/client';
 
 const CATEGORIES = [
-  { id: 'naming', label: '✏️ 작명이야기' },
-  { id: 'saju', label: '🔮 사주이야기' },
-  { id: 'education', label: '📚 교육' },
-  { id: 'health', label: '💊 건강' },
-  { id: 'growth', label: '🌱 성장' },
-  { id: 'parenting', label: '👨‍👩‍👧 공동육아' },
+  { id: 'naming' as const, label: '✏️ 작명이야기' },
+  { id: 'saju' as const, label: '🔮 사주이야기' },
+  { id: 'pregnancy' as const, label: '🤰 임신/출산' },
+  { id: 'parenting' as const, label: '👨‍👩‍👧 육아' },
+  { id: 'free' as const, label: '💬 자유게시판' },
   { id: 'shopping', label: '🛒 쇼핑' },
 ];
 
 export default function WritePage() {
   const router = useRouter();
-  const [selectedCategory, setSelectedCategory] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState<typeof CATEGORIES[number]['id'] | ''>('');
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
 
@@ -30,7 +29,7 @@ export default function WritePage() {
   const handleSubmit = () => {
     if (!selectedCategory || !content.trim()) return;
     createPost.mutate({
-      category: selectedCategory,
+      category: selectedCategory as 'naming' | 'saju' | 'pregnancy' | 'parenting' | 'free',
       title: title.trim() || undefined,
       content: content.trim(),
     });

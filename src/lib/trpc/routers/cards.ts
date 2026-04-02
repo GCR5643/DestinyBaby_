@@ -42,7 +42,9 @@ const ELEMENTS: Element[] = ['wood', 'fire', 'earth', 'metal', 'water'];
 
 function weightedPull(probabilities: { grade: Grade; weight: number }[]): Grade {
   const total = probabilities.reduce((sum, p) => sum + p.weight, 0);
-  let rand = Math.random() * total;
+  const bytes = new Uint32Array(1);
+  crypto.getRandomValues(bytes);
+  let rand = (bytes[0] / 0xFFFFFFFF) * total;
   for (const p of probabilities) {
     rand -= p.weight;
     if (rand <= 0) return p.grade;
@@ -59,7 +61,7 @@ function generateCard(grade: Grade, elementBoosts?: Record<Element, number>): Ca
   const template = pickCardTemplate(grade, element);
 
   return {
-    id: `dynamic-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+    id: crypto.randomUUID(),
     name: template.name,
     grade,
     element,

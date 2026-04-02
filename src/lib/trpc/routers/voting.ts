@@ -3,9 +3,11 @@ import { createTRPCRouter, publicProcedure, protectedProcedure } from '@/lib/trp
 
 function generateShareCode(): string {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789';
+  const bytes = new Uint8Array(8);
+  crypto.getRandomValues(bytes);
   let code = '';
-  for (let i = 0; i < 6; i++) {
-    code += chars[Math.floor(Math.random() * chars.length)];
+  for (let i = 0; i < 8; i++) {
+    code += chars[bytes[i] % chars.length];
   }
   return code;
 }
@@ -275,16 +277,19 @@ export const votingRouter = createTRPCRouter({
       return result;
     }),
 
-  // 투표 마감하기
-  closeSession: publicProcedure
+  // 투표 마감하기 (생성자만 가능)
+  closeSession: protectedProcedure
     .input(z.object({ shareCode: z.string() }))
     .mutation(async ({ ctx, input }) => {
-      const { error } = await ctx.supabase
+      const { data, error } = await ctx.supabase
         .from('name_vote_sessions')
         .update({ expires_at: new Date().toISOString() })
-        .eq('share_code', input.shareCode);
+        .eq('share_code', input.shareCode)
+        .eq('creator_id', ctx.user.id)
+        .select('id')
+        .single();
 
-      if (error) throw new Error(`투표 마감 실패: ${error.message}`);
+      if (error || !data) throw new Error('투표 마감 권한이 없거나 세션을 찾을 수 없습니다');
       return { success: true };
     }),
 });

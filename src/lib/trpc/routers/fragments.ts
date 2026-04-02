@@ -85,12 +85,18 @@ export const fragmentsRouter = createTRPCRouter({
       };
     }),
 
-  // 레거시: 결제 없이 조각 지급 (테스트/어드민 전용)
+  // 어드민 전용: 결제 없이 조각 지급 (테스트/디버그)
   purchase: protectedProcedure
     .input(z.object({
       packageId: z.enum(['handful', 'pouch', 'pouch_large', 'golden_jar']),
     }))
     .mutation(async ({ ctx, input }) => {
+      // 어드민 권한 체크
+      const adminEmails = (process.env.ADMIN_EMAILS || '').split(',').map(e => e.trim());
+      if (!ctx.user.email || !adminEmails.includes(ctx.user.email)) {
+        throw new Error('어드민 권한이 필요합니다');
+      }
+
       const packages = {
         handful:     { fragments: 10,  price: 1200,  name: '한 줌' },
         pouch:       { fragments: 30,  price: 3000,  name: '작은 보따리' },
@@ -98,61 +104,31 @@ export const fragmentsRouter = createTRPCRouter({
         golden_jar:  { fragments: 300, price: 20000, name: '황금 항아리' },
       };
       const pkg = packages[input.packageId];
-      const orderId = `frag_order_${ctx.user.id}_${Date.now()}`;
+      const orderId = `admin_grant_${ctx.user.id}_${Date.now()}`;
 
       const { error: rpcError } = await ctx.supabase.rpc('add_fragments', {
         p_user_id: ctx.user.id,
         p_amount: pkg.fragments,
-        p_type: 'purchase',
-        p_description: `운명의 조각 구매 - ${pkg.name} (주문: ${orderId})`,
+        p_type: 'admin_grant',
+        p_description: `어드민 지급 - ${pkg.name} (${orderId})`,
       });
 
-      let newBalance = pkg.fragments;
-
       if (rpcError) {
-        console.warn('[fragments] rpc add_fragments failed, using manual fallback:', rpcError);
-        try {
-          const { data: user } = await ctx.supabase
-            .from('users')
-            .select('destiny_fragments')
-            .eq('id', ctx.user.id)
-            .single();
-
-          const currentBalance = (user as { destiny_fragments?: number } | null)?.destiny_fragments || 0;
-          newBalance = currentBalance + pkg.fragments;
-
-          await ctx.supabase
-            .from('users')
-            .update({ destiny_fragments: newBalance })
-            .eq('id', ctx.user.id);
-
-          await ctx.supabase.from('fragment_transactions').insert({
-            user_id: ctx.user.id,
-            amount: pkg.fragments,
-            type: 'purchase',
-            description: `운명의 조각 구매 - ${pkg.name} (주문: ${orderId})`,
-          });
-        } catch (e) {
-          console.warn('[fragments] manual fallback failed:', e);
-        }
-      } else {
-        try {
-          const { data: user } = await ctx.supabase
-            .from('users')
-            .select('destiny_fragments')
-            .eq('id', ctx.user.id)
-            .single();
-          newBalance = (user as { destiny_fragments?: number } | null)?.destiny_fragments || pkg.fragments;
-        } catch (e) {
-          console.warn('[fragments] getBalance after rpc failed:', e);
-        }
+        console.error('[fragments] admin grant failed:', rpcError);
+        throw new Error('조각 지급에 실패했습니다');
       }
+
+      const { data: user } = await ctx.supabase
+        .from('users')
+        .select('destiny_fragments')
+        .eq('id', ctx.user.id)
+        .single();
 
       return {
         success: true,
         orderId,
         fragments: pkg.fragments,
-        newBalance,
+        newBalance: (user as { destiny_fragments?: number } | null)?.destiny_fragments || pkg.fragments,
       };
     }),
 

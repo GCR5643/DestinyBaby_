@@ -56,12 +56,17 @@ export const communityRouter = createTRPCRouter({
           return mock ?? null;
         }
 
-        // increment view count (fire and forget)
-        ctx.supabase
-          .from('community_posts')
-          .update({ view_count: (data.view_count ?? 0) + 1 })
-          .eq('id', input.id)
-          .then(() => {});
+        // 조회수 원자적 증가 (fire and forget)
+        ctx.supabase.rpc('increment_view_count', { p_post_id: input.id }).then(({ error: rpcErr }) => {
+          if (rpcErr) {
+            // RPC 미존재 시 폴백
+            ctx.supabase
+              .from('community_posts')
+              .update({ view_count: (data.view_count ?? 0) + 1 })
+              .eq('id', input.id)
+              .then(() => {});
+          }
+        });
 
         return data;
       } catch (e) {
@@ -72,8 +77,8 @@ export const communityRouter = createTRPCRouter({
 
   createPost: protectedProcedure
     .input(z.object({
-      category: z.string(),
-      title: z.string().optional(),
+      category: z.enum(['naming', 'saju', 'pregnancy', 'parenting', 'free']),
+      title: z.string().max(100).optional(),
       content: z.string().min(1).max(2000),
     }))
     .mutation(async ({ ctx, input }) => {
@@ -203,5 +208,44 @@ export const communityRouter = createTRPCRouter({
         console.warn('[community] getComments failed:', e);
         return [];
       }
+    }),
+
+  // 게시글 삭제 (작성자만)
+  deletePost: protectedProcedure
+    .input(z.object({ postId: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      const { data, error } = await ctx.supabase
+        .from('community_posts')
+        .delete()
+        .eq('id', input.postId)
+        .eq('user_id', ctx.user.id)
+        .select('id')
+        .single();
+
+      if (error || !data) throw new Error('삭제 권한이 없거나 게시글을 찾을 수 없습니다');
+      return { success: true };
+    }),
+
+  // 게시글 수정 (작성자만)
+  updatePost: protectedProcedure
+    .input(z.object({
+      postId: z.string(),
+      title: z.string().max(100).optional(),
+      content: z.string().min(1).max(2000),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const { data, error } = await ctx.supabase
+        .from('community_posts')
+        .update({
+          title: input.title,
+          content: input.content,
+        })
+        .eq('id', input.postId)
+        .eq('user_id', ctx.user.id)
+        .select('id')
+        .single();
+
+      if (error || !data) throw new Error('수정 권한이 없거나 게시글을 찾을 수 없습니다');
+      return { success: true };
     }),
 });

@@ -1,8 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { generateTTS } from '@/lib/tts/tts-service';
+import { createClient } from '@/lib/supabase/server';
 import type { VoiceType } from '@/types';
 
 export async function POST(request: NextRequest) {
+  // 인증 체크: ElevenLabs API 비용 보호
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    return NextResponse.json({ error: '로그인이 필요합니다' }, { status: 401 });
+  }
+
   if (!process.env.ELEVENLABS_API_KEY) {
     return NextResponse.json(
       { error: 'TTS API 키가 설정되지 않았습니다' },
