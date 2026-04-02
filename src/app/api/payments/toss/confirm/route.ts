@@ -81,20 +81,27 @@ export async function POST(request: NextRequest) {
   try {
     const credits = PACK_CREDITS[(order as { pack_id: string }).pack_id] ?? (order as { credits: number }).credits;
 
-    // Get current user credit balance
-    const { data: user } = await supabase
-      .from('users')
-      .select('credits')
-      .eq('id', (order as { user_id: string }).user_id)
-      .single();
+    // 원자적 크레딧 업데이트 (FOR UPDATE 행 잠금으로 race condition 방지)
+    const { error: creditError } = await supabase.rpc('add_credits', {
+      p_user_id: (order as { user_id: string }).user_id,
+      p_amount: credits,
+    });
 
-    const currentCredits = (user as { credits?: number } | null)?.credits ?? 0;
+    if (creditError) {
+      console.error('[toss-confirm] add_credits RPC failed:', creditError);
+      // RPC 미존재 시 폴백 — 주문 status=completed 체크로 중복 방지
+      const { data: user } = await supabase
+        .from('users')
+        .select('credits')
+        .eq('id', (order as { user_id: string }).user_id)
+        .single();
 
-    // Update user credits
-    await supabase
-      .from('users')
-      .update({ credits: currentCredits + credits })
-      .eq('id', (order as { user_id: string }).user_id);
+      const currentCredits = (user as { credits?: number } | null)?.credits ?? 0;
+      await supabase
+        .from('users')
+        .update({ credits: currentCredits + credits })
+        .eq('id', (order as { user_id: string }).user_id);
+    }
 
     // Mark order as completed
     await supabase

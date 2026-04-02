@@ -82,16 +82,25 @@ export const paymentsRouter = createTRPCRouter({
 
         const credits = (order as { credits: number }).credits;
 
-        const { data: user } = await ctx.supabase
-          .from('users')
-          .select('credits')
-          .eq('id', ctx.user.id)
-          .single();
+        // 원자적 크레딧 업데이트 (race condition 방지)
+        const { error: rpcError } = await ctx.supabase.rpc('add_credits', {
+          p_user_id: ctx.user.id,
+          p_amount: credits,
+        });
 
-        await ctx.supabase
-          .from('users')
-          .update({ credits: ((user as { credits?: number } | null)?.credits || 0) + credits })
-          .eq('id', ctx.user.id);
+        if (rpcError) {
+          console.warn('[payments] add_credits RPC failed, using manual fallback:', rpcError);
+          const { data: user } = await ctx.supabase
+            .from('users')
+            .select('credits')
+            .eq('id', ctx.user.id)
+            .single();
+
+          await ctx.supabase
+            .from('users')
+            .update({ credits: ((user as { credits?: number } | null)?.credits || 0) + credits })
+            .eq('id', ctx.user.id);
+        }
 
         await ctx.supabase.from('payment_orders')
           .update({ status: 'completed' })

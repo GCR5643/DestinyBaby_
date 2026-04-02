@@ -26,8 +26,8 @@ const t = initTRPC.context<typeof createTRPCContext>().create({
 export const createTRPCRouter = t.router;
 export const publicProcedure = t.procedure;
 export const protectedProcedure = t.procedure.use(({ ctx, next }) => {
-  // SKIP_AUTH: 테스트용 인증 우회 (롤백: NEXT_PUBLIC_SKIP_AUTH 환경변수 삭제)
   if (SKIP_AUTH && !ctx.user) {
+    console.warn('[tRPC] SKIP_AUTH 활성화됨 — 개발 환경 전용');
     return next({ ctx: { ...ctx, user: MOCK_USER } });
   }
   if (!ctx.user) throw new TRPCError({ code: 'UNAUTHORIZED' });

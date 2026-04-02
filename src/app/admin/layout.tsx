@@ -18,9 +18,10 @@ export default async function AdminLayout({
   const adminEmailsEnv = process.env.ADMIN_EMAILS;
 
   if (!adminEmailsEnv) {
-    console.warn(
-      '[AdminLayout] ADMIN_EMAILS 환경변수가 설정되지 않았습니다. 인증된 모든 사용자가 어드민에 접근할 수 있습니다.'
+    console.error(
+      '[AdminLayout] ADMIN_EMAILS 환경변수가 설정되지 않았습니다. 접근을 차단합니다.'
     );
+    redirect('/');
   } else {
     const adminEmails = adminEmailsEnv.split(',').map((e) => e.trim());
     if (!user.email || !adminEmails.includes(user.email)) {

@@ -8,11 +8,13 @@ export async function GET(request: NextRequest) {
   const code = searchParams.get('code');
   const token_hash = searchParams.get('token_hash');
   const type = searchParams.get('type') as 'magiclink' | 'email' | undefined;
-  const next = searchParams.get('next') ?? '/';
+  const nextParam = searchParams.get('next') ?? '/';
+  // Open redirect 방지: 상대 경로만 허용
+  const safePath = nextParam.startsWith('/') && !nextParam.startsWith('//') ? nextParam : '/';
 
   if (code || (token_hash && type)) {
     // 리다이렉트 응답을 먼저 생성하고, 세션 쿠키를 이 응답에 직접 설정
-    const redirectUrl = new URL(next, origin);
+    const redirectUrl = new URL(safePath, origin);
     const response = NextResponse.redirect(redirectUrl);
 
     const supabase = createServerClient(

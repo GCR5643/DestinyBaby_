@@ -26,8 +26,8 @@ export async function updateSession(request: NextRequest) {
 
   const { data: { user } } = await supabase.auth.getUser();
 
-  // SKIP_AUTH: 테스트용 전체 인증 우회
-  if (process.env.NEXT_PUBLIC_SKIP_AUTH === 'true') {
+  // SKIP_AUTH: 개발 환경 전용 인증 우회
+  if (process.env.NODE_ENV === 'development' && process.env.SKIP_AUTH_DEV === 'true') {
     return supabaseResponse;
   }
 
