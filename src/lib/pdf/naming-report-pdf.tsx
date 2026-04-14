@@ -7,7 +7,7 @@ import {
   StyleSheet,
   Font,
 } from '@react-pdf/renderer';
-import type { NamingReport, Element } from '@/types';
+import type { NamingReport } from '@/types';
 
 // Register Korean font
 Font.register({

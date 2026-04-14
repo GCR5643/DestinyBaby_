@@ -380,9 +380,6 @@ export function analyzeJawonOheng(
   generateCount: number; // 상생으로 용신을 돕는 한자 수
   score: number; // 0~100
 } {
-  const SANGSAENG: Record<Element, Element> = {
-    wood: 'fire', fire: 'earth', earth: 'metal', metal: 'water', water: 'wood',
-  };
   // 역상생: 어떤 오행이 용신을 생하는가
   const GENERATES_YONGSHIN: Record<Element, Element> = {
     wood: 'water', fire: 'wood', earth: 'fire', metal: 'earth', water: 'metal',

@@ -107,7 +107,6 @@ export async function analyzeName(
   // hanja 길이 == name 길이 → 성씨 포함
   const hanjaIsNameOnly = hanja.length === nameHangul.length;
   const nameHanjaChars = hanjaIsNameOnly ? Array.from(hanja) : Array.from(hanja).slice(1);
-  const allHanjaChars = hanjaIsNameOnly ? Array.from(hanja) : Array.from(hanja);
 
   const strokeAnalysis = calculateStrokes(
     hanjaIsNameOnly ? hanja : hanja, // 5격 계산용

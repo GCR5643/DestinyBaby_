@@ -82,6 +82,7 @@ const VOICE_SETTINGS: Record<VoiceType, {
 const MODEL_ID = process.env.ELEVENLABS_MODEL_ID || 'eleven_v3';
 
 // 보이스 타입별 previous_text: 따뜻한 서사 컨텍스트 주입 → 음성 톤 유도
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const VOICE_CONTEXT: Record<VoiceType, { previous_text: string }> = {
   mom:     { previous_text: '엄마가 아이를 꼭 안아주며 따뜻하게 속삭였다.' },
   dad:     { previous_text: '아빠가 아이 머리를 쓰다듬으며 다정하게 말했다.' },

@@ -3,8 +3,6 @@ import { getElementRelationship } from './saju-calculator';
 
 // ── 천간 (Heavenly Stems) 참조 테이블 ──
 
-const HEAVENLY_STEMS = ['갑', '을', '병', '정', '무', '기', '경', '신', '임', '계'] as const;
-
 const STEM_ELEMENT: Record<string, Element> = {
   '갑': 'wood', '을': 'wood',
   '병': 'fire', '정': 'fire',

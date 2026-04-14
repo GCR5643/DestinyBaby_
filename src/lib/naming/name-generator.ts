@@ -232,7 +232,6 @@ export async function generateNames(input: NamingInput): Promise<SuggestedName[]
   const baseSaju = input.babySaju ?? input.parent1Saju;
   const lackingElement = baseSaju.lackingElement;
   const complementElement = getComplementaryElement(lackingElement);
-  const targetChars = ELEMENT_HANJA_CHARS[complementElement];
 
   const babyLacking = baseSaju.lackingElement;
   const babyMainElement = baseSaju.mainElement;

@@ -4,7 +4,7 @@ import { getElementRelationship } from '@/lib/saju/saju-calculator';
 export function analyzeSiblingCompatibility(
   sibling1Saju: SajuResult,
   parent1Saju: SajuResult,
-  parent2Saju?: SajuResult
+  _parent2Saju?: SajuResult
 ): SiblingCompatibility {
   const elemRelation = getElementRelationship(sibling1Saju.mainElement, parent1Saju.mainElement);
 

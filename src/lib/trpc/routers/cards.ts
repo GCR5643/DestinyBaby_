@@ -21,6 +21,7 @@ const PROBABILITIES: { grade: Grade; weight: number }[] = [
   { grade: 'SSS', weight: 3 },
 ];
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const CARD_NAMES: Record<Element, string[]> = {
   wood: ['봄의 기운', '초록의 힘', '새싹의 성장', '나무의 지혜', '숲의 수호자'],
   fire: ['불꽃의 의지', '태양의 빛', '화염의 열정', '붉은 에너지', '여름의 기운'],
@@ -29,6 +30,7 @@ const CARD_NAMES: Record<Element, string[]> = {
   water: ['흐르는 물', '겨울의 지혜', '깊은 바다', '유연한 기운', '달의 신비'],
 };
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const GRADE_DESCRIPTIONS: Record<Grade, string> = {
   N: '기본 운세 카드',
   R: '행운의 기운이 담긴 카드',

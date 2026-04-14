@@ -190,7 +190,7 @@ export const namingRouter = createTRPCRouter({
       parent2BirthDate: z.string().optional(),
       gender: z.enum(['male', 'female', 'unknown']),
     }))
-    .mutation(async ({ ctx, input }) => {
+    .mutation(async ({ input }) => {
       const parent1Saju = calculateSaju(input.parent1BirthDate);
       const parent2Saju = input.parent2BirthDate ? calculateSaju(input.parent2BirthDate) : undefined;
       return generateTaemyeong(parent1Saju, parent2Saju, input.gender);
@@ -204,7 +204,7 @@ export const namingRouter = createTRPCRouter({
       options: z.array(z.enum(['similar_sound', 'similar_meaning', 'same_initial', 'global_popular', 'custom'])),
       customPrompt: z.string().optional(),
     }))
-    .mutation(async ({ ctx, input }) => {
+    .mutation(async ({ input }) => {
       return generateEnglishNames(
         input.koreanName,
         input.hanja || '',
