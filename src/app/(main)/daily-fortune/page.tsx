@@ -61,6 +61,7 @@ export default function DailyFortunePage() {
   // 게스트 입력
   const [guestName, setGuestName] = useState('');
   const [guestBirthDate, setGuestBirthDate] = useState('');
+  const [guestBirthTime, setGuestBirthTime] = useState('');
 
   const { data: childrenData } = trpc.user.getChildren.useQuery(undefined, { enabled: !!user || SKIP_AUTH });
   const { data: balanceData, refetch: refetchBalance } = trpc.fragments.getBalance.useQuery(undefined, { enabled: !!user || SKIP_AUTH });
@@ -102,9 +103,10 @@ export default function DailyFortunePage() {
     try {
       const saved = localStorage.getItem('fortune_guest_child');
       if (saved) {
-        const { name, birthDate } = JSON.parse(saved);
+        const { name, birthDate, birthTime } = JSON.parse(saved);
         if (name) setGuestName(name);
         if (birthDate) setGuestBirthDate(birthDate);
+        if (birthTime) setGuestBirthTime(birthTime);
       }
     } catch { /* ignore */ }
   }, []);
@@ -132,10 +134,11 @@ export default function DailyFortunePage() {
 
   const handleGuestUnlock = useCallback(() => {
     if (!guestName.trim() || !guestBirthDate) return;
+    // guestBirthTime is optional — proceed even if empty
     if (hasGuestUsedThisPeriod()) { setGuestLimitReached(true); return; }
-    localStorage.setItem('fortune_guest_child', JSON.stringify({ name: guestName.trim(), birthDate: guestBirthDate }));
-    generateGuestFortune.mutate({ childName: guestName.trim(), birthDate: guestBirthDate });
-  }, [guestName, guestBirthDate, generateGuestFortune]);
+    localStorage.setItem('fortune_guest_child', JSON.stringify({ name: guestName.trim(), birthDate: guestBirthDate, birthTime: guestBirthTime }));
+    generateGuestFortune.mutate({ childName: guestName.trim(), birthDate: guestBirthDate, birthTime: guestBirthTime || undefined });
+  }, [guestName, guestBirthDate, guestBirthTime, generateGuestFortune]);
 
   const handleLoggedInUnlock = useCallback(() => {
     if (!selectedChildId) return;
@@ -259,7 +262,7 @@ export default function DailyFortunePage() {
               <div className="bg-white rounded-2xl p-6 shadow-sm">
                 <div className="text-center mb-5">
                   <p className="text-lg font-bold text-gray-800 mb-1">우리 아이 운세 보기 ✨</p>
-                  <p className="text-sm text-gray-500">이름과 생년월일만 입력하면 바로 확인할 수 있어요</p>
+                  <p className="text-sm text-gray-500">이름과 생년월일을 입력하면 바로 확인할 수 있어요</p>
                 </div>
                 <div className="space-y-3">
                   <div>
@@ -272,6 +275,30 @@ export default function DailyFortunePage() {
                     <label className="block text-sm font-medium text-gray-600 mb-1">생년월일</label>
                     <input type="date" value={guestBirthDate} onChange={(e) => setGuestBirthDate(e.target.value)}
                       className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-amber-300 focus:border-amber-300 outline-none" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-600 mb-1">
+                      태어난 시간 <span className="text-gray-400 font-normal">(모르면 생략 가능)</span>
+                    </label>
+                    <select
+                      value={guestBirthTime}
+                      onChange={(e) => setGuestBirthTime(e.target.value)}
+                      className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-amber-300 focus:border-amber-300 outline-none bg-white"
+                    >
+                      <option value="">모름</option>
+                      <option value="00:00">자시 (23~01시)</option>
+                      <option value="02:00">축시 (01~03시)</option>
+                      <option value="04:00">인시 (03~05시)</option>
+                      <option value="06:00">묘시 (05~07시)</option>
+                      <option value="08:00">진시 (07~09시)</option>
+                      <option value="10:00">사시 (09~11시)</option>
+                      <option value="12:00">오시 (11~13시)</option>
+                      <option value="14:00">미시 (13~15시)</option>
+                      <option value="16:00">신시 (15~17시)</option>
+                      <option value="18:00">유시 (17~19시)</option>
+                      <option value="20:00">술시 (19~21시)</option>
+                      <option value="22:00">해시 (21~23시)</option>
+                    </select>
                   </div>
                 </div>
 
