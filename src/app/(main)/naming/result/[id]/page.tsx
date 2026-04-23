@@ -10,6 +10,7 @@ import { cn } from '@/lib/utils';
 import { trpc } from '@/lib/trpc/client';
 import { createClient } from '@/lib/supabase/client';
 import { SKIP_AUTH } from '@/lib/auth/skip-auth';
+import { OhengTheme, CozyPanel, RibbonBanner } from '@/components/cozy';
 
 // ── Mock data pool ────────────────────────────────────────────────────────────
 
@@ -113,12 +114,13 @@ interface NameCardProps {
 
 function NameCard({ name, index, isCandidate, popularity, surname, surnameHanja, lackingElement, onAddCandidate, onVoice }: NameCardProps) {
   const fullName = surname ? `${surname}${name.name}` : name.name;
-  // 성씨 한자가 있으면 한자 전체 이름 표시 (예: 金瑞俊), 없으면 한글 성씨만
   const fullHanja = surnameHanja ? `${surnameHanja}${name.hanja}` : name.hanja;
 
-  // 한자 글자별 의미 설명 생성
-  const hanjaChars = (name.hanja || '').split('');
-  const nameChars = name.name.split('');
+  // 사주 점수 → 수집 등급 느낌으로 컬러링
+  const scoreColor =
+    name.sajuScore >= 90 ? 'text-amber-500' :
+    name.sajuScore >= 80 ? 'text-primary-600' :
+    'text-gray-500';
 
   return (
     <motion.div
@@ -127,12 +129,18 @@ function NameCard({ name, index, isCandidate, popularity, surname, surnameHanja,
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -20 }}
       transition={{ delay: index * 0.07 }}
-      className="bg-white rounded-2xl shadow-md overflow-hidden border border-gray-100"
     >
-      <div className="p-5">
-        <div className="flex items-start justify-between mb-2">
+      <CozyPanel
+        element={name.element}
+        tone="pastel"
+        padding="none"
+        hover
+        className="overflow-hidden"
+      >
+        {/* 카드 상단 — 이름 + 점수 */}
+        <div className="flex items-start justify-between px-5 pt-5 pb-3">
           <div>
-            <h2 className="text-3xl font-bold text-gray-800">{fullName}</h2>
+            <h2 className="font-display text-3xl text-gray-800 leading-tight">{fullName}</h2>
             <p className="text-sm text-gray-400 mt-0.5">
               {surnameHanja
                 ? fullHanja
@@ -140,53 +148,63 @@ function NameCard({ name, index, isCandidate, popularity, surname, surnameHanja,
               }
             </p>
           </div>
-          <div className="text-right">
-            <div className="text-2xl font-bold text-primary-600">{name.sajuScore}</div>
-            <div className="text-xs text-gray-400">종합점수</div>
+          <div className="text-right flex-shrink-0 ml-3">
+            <div className={cn('font-display text-2xl font-bold leading-none', scoreColor)}>
+              {name.sajuScore}
+            </div>
+            <div className="text-[10px] text-gray-400 mt-0.5">사주 점수</div>
             <div className="mt-1.5">
               <TrendBadge info={popularity} />
             </div>
           </div>
         </div>
 
-        {/* 이름 뜻 설명 */}
-        <div className="mb-3 space-y-2">
-          <div className="bg-amber-50 rounded-xl p-3 border border-amber-100">
-            <p className="text-xs font-semibold text-amber-600 mb-1">📖 뜻풀이</p>
+        {/* 뜻풀이 영역 */}
+        <div className="px-5 pb-3 space-y-2">
+          <div className="bg-white/70 rounded-xl p-3 border border-white/80">
+            <p className="text-[11px] font-semibold text-amber-600 mb-1">📖 뜻풀이</p>
             <p className="text-sm text-gray-700 leading-relaxed">
               {name.meaning ?? `${fullName}은(는) ${name.reasonShort}`}
             </p>
           </div>
           {name.sajuInsight && (
-            <div className="bg-primary-50 rounded-xl p-3 border border-primary-100">
-              <p className="text-xs font-semibold text-primary-600 mb-1">✦ 성명학</p>
-              <p className="text-sm text-primary-800 leading-relaxed">
-                {name.sajuInsight}
-              </p>
+            <div className="bg-white/70 rounded-xl p-3 border border-white/80">
+              <p className="text-[11px] font-semibold text-primary-600 mb-1">✦ 성명학</p>
+              <p className="text-sm text-primary-800 leading-relaxed">{name.sajuInsight}</p>
             </div>
           )}
         </div>
 
-        {/* 성명학 크리티컬 정보 */}
+        {/* 오행 태그 */}
         {(name.element || lackingElement) && (
-          <div className="flex flex-wrap gap-1.5 mb-3">
+          <div className="flex flex-wrap gap-1.5 px-5 pb-3">
             {name.element && (
-              <span className="inline-flex items-center gap-1 text-xs bg-primary-50 text-primary-700 px-2.5 py-1 rounded-full font-medium">
+              <span className="inline-flex items-center gap-1 text-xs bg-white/80 text-gray-600 px-2.5 py-1 rounded-full font-medium border border-white/90">
                 ✦ {ELEMENT_KO[name.element]} 기운
               </span>
             )}
             {lackingElement && name.element && (
-              <span className="inline-flex items-center gap-1 text-xs bg-amber-50 text-amber-700 px-2.5 py-1 rounded-full font-medium">
+              <span className="inline-flex items-center gap-1 text-xs bg-amber-50 text-amber-700 px-2.5 py-1 rounded-full font-medium border border-amber-100">
                 부족한 {ELEMENT_KO[lackingElement]} 보완
               </span>
             )}
           </div>
         )}
 
-        <div className="flex gap-2">
+        {/* 한자 풀이 리본 배너 */}
+        {name.hanja && (
+          <div className="flex justify-center pb-4">
+            <RibbonBanner element={name.element} size="sm">
+              {name.hanja} — {name.reasonShort.slice(0, 16)}{name.reasonShort.length > 16 ? '…' : ''}
+            </RibbonBanner>
+          </div>
+        )}
+
+        {/* 액션 버튼 */}
+        <div className="flex gap-2 px-5 pb-5">
           <button
             onClick={() => onVoice(name.name)}
-            className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-gray-50 text-sm text-gray-600 hover:bg-gray-100 transition-colors"
+            className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-white/60 border border-white/80 text-sm text-gray-600 hover:bg-white/90 transition-colors"
           >
             <Volume2 className="w-4 h-4" />
             발음 듣기
@@ -197,7 +215,7 @@ function NameCard({ name, index, isCandidate, popularity, surname, surnameHanja,
             className={cn(
               'flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-sm font-medium transition-colors',
               isCandidate
-                ? 'bg-green-50 text-green-600 cursor-default'
+                ? 'bg-green-50 text-green-600 border border-green-100 cursor-default'
                 : 'bg-primary-500 text-white hover:bg-primary-600'
             )}
           >
@@ -205,7 +223,7 @@ function NameCard({ name, index, isCandidate, popularity, surname, surnameHanja,
             {isCandidate ? '✅ 후보됨' : '⭐ 후보 추가'}
           </button>
         </div>
-      </div>
+      </CozyPanel>
     </motion.div>
   );
 }
@@ -532,24 +550,35 @@ export default function NamingResultPage({ params }: { params: { id: string } })
     { key: '1', label: '외자 (1글자)' },
   ];
 
+  // 페이지 전체 오행 테마: 현재 표시 이름들 중 가장 많은 오행 사용
+  const pageElement = (() => {
+    if (displayed.length === 0) return undefined;
+    const counts: Record<string, number> = {};
+    for (const n of displayed) {
+      if (n.element) counts[n.element] = (counts[n.element] ?? 0) + 1;
+    }
+    const top = Object.entries(counts).sort((a, b) => b[1] - a[1])[0];
+    return top ? (top[0] as import('@/types').Element) : undefined;
+  })();
+
   // Show loading while fetching real result
   if (!isGuest && resultQuery.isLoading) {
     return (
-      <div className="min-h-screen bg-ivory flex items-center justify-center">
+      <CozyPanel padding="lg" className="min-h-screen flex items-center justify-center">
         <p className="text-gray-400 text-sm">이름을 불러오는 중...</p>
-      </div>
+      </CozyPanel>
     );
   }
 
   return (
-    <div className="min-h-screen bg-ivory pb-24">
+    <OhengTheme element={pageElement} as="div" className="min-h-screen bg-ivory pb-24">
       {isGuest && <DemoBanner />}
 
-      {/* Header */}
+      {/* 헤더 — 코지 그라디언트 배너 */}
       <div className="bg-gradient-to-br from-primary-500 to-primary-400 pt-12 pb-8 px-4 text-white text-center">
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
           <p className="text-sm opacity-80 mb-1">AI가 추천하는</p>
-          <h1 className="text-2xl font-bold">이름 목록</h1>
+          <h1 className="font-display text-2xl">이름 목록</h1>
         </motion.div>
       </div>
 
@@ -578,8 +607,8 @@ export default function NamingResultPage({ params }: { params: { id: string } })
           </div>
         )}
 
-        {/* Length filter */}
-        <div className="bg-white rounded-2xl shadow-md p-3 mb-4 flex gap-2">
+        {/* 글자수 필터 */}
+        <CozyPanel padding="sm" className="mb-4 flex gap-2">
           {filterLabels.map(({ key, label }) => (
             <button
               key={key}
@@ -594,7 +623,7 @@ export default function NamingResultPage({ params }: { params: { id: string } })
               {label}
             </button>
           ))}
-        </div>
+        </CozyPanel>
 
         {/* Name cards */}
         <div className="space-y-4 md:grid md:grid-cols-2 md:gap-4 md:space-y-0 mb-4">
@@ -616,9 +645,9 @@ export default function NamingResultPage({ params }: { params: { id: string } })
           </AnimatePresence>
         </div>
 
-        {/* Load more / Regenerate */}
+        {/* 더 보기 / 재생성 */}
         {showRegeneratePrompt ? (
-          <div className="bg-primary-50 border border-primary-200 rounded-2xl p-5 mb-6 text-center">
+          <CozyPanel padding="md" className="mb-6 text-center">
             <p className="text-sm text-gray-700 mb-3">
               {canRegenerate
                 ? `모든 이름을 확인했어요. 새로운 이름을 뽑아볼까요? (${regenCount}/${MAX_REGEN})`
@@ -638,7 +667,7 @@ export default function NamingResultPage({ params }: { params: { id: string } })
             >
               조건 변경하기
             </button>
-          </div>
+          </CozyPanel>
         ) : (
           <button
             onClick={handleLoadMore}
@@ -653,8 +682,9 @@ export default function NamingResultPage({ params }: { params: { id: string } })
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            className="bg-white rounded-2xl shadow-md p-5 mb-4"
+            className="mb-4"
           >
+          <CozyPanel padding="md">
             <div className="flex items-center justify-between mb-3">
               <h3 className="font-bold text-gray-800">
                 🌟 &quot;{famousNameQuery}&quot; 이름의 주인공들
@@ -721,13 +751,14 @@ export default function NamingResultPage({ params }: { params: { id: string } })
                 아직 유명한 &quot;{famousNameQuery}&quot; 정보를 찾지 못했어요
               </p>
             )}
+          </CozyPanel>
           </motion.div>
         )}
 
-        {/* Candidate section */}
-        <div className="bg-white rounded-2xl shadow-md p-5 mb-4">
+        {/* 후보 이름 섹션 */}
+        <CozyPanel padding="md" className="mb-4">
           <div className="flex items-center justify-between mb-3">
-            <h3 className="font-bold text-gray-800">⭐ 내 후보 이름 ({candidates.length}/10)</h3>
+            <h3 className="font-display text-base text-gray-800">⭐ 내 후보 이름 ({candidates.length}/10)</h3>
             {candidates.length > 0 && (
               <button
                 onClick={() => setCandidates([])}
@@ -786,7 +817,7 @@ export default function NamingResultPage({ params }: { params: { id: string } })
           >
             ✅ 이름 최종 선택하기
           </button>
-        </div>
+        </CozyPanel>
 
         {/* Bottom nav — 조건 변경 */}
         <div className="space-y-2">
@@ -1018,12 +1049,14 @@ export default function NamingResultPage({ params }: { params: { id: string } })
       </AnimatePresence>
 
       {/* 면책 문구 */}
-      <div className="mx-4 mb-6 p-4 bg-gray-50 rounded-2xl border border-gray-100">
-        <p className="text-xs text-gray-400 leading-relaxed text-center">
-          본 서비스의 이름 추천은 전통 성명학 원리와 AI를 결합한 참고 자료입니다.
-          최종 작명 시 전문 작명소 상담을 병행하시기를 권장합니다.
-          AI 분석 결과에 대한 법적 책임은 지지 않습니다.
-        </p>
+      <div className="mx-4 mb-6">
+        <CozyPanel padding="sm">
+          <p className="text-xs text-gray-400 leading-relaxed text-center">
+            본 서비스의 이름 추천은 전통 성명학 원리와 AI를 결합한 참고 자료입니다.
+            최종 작명 시 전문 작명소 상담을 병행하시기를 권장합니다.
+            AI 분석 결과에 대한 법적 책임은 지지 않습니다.
+          </p>
+        </CozyPanel>
       </div>
 
       {/* Toast */}
@@ -1039,6 +1072,6 @@ export default function NamingResultPage({ params }: { params: { id: string } })
           </motion.div>
         )}
       </AnimatePresence>
-    </div>
+    </OhengTheme>
   );
 }

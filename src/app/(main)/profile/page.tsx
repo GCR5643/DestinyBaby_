@@ -5,6 +5,8 @@ export const dynamic = 'force-dynamic';
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Settings, CreditCard, LogOut, ChevronRight, Heart, X, Calendar, Sparkles, LogIn, Gem, Users, Check, Pencil, Clock } from 'lucide-react';
+import { CozyPanel } from '@/components/cozy';
+import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
@@ -132,14 +134,11 @@ export default function ProfilePage() {
           <div className="w-24 h-24 bg-primary-100 rounded-full flex items-center justify-center mx-auto mb-6">
             <LogIn className="w-10 h-10 text-primary-500" />
           </div>
-          <h1 className="text-xl font-bold text-gray-800 mb-2">로그인이 필요해요</h1>
+          <h1 className="font-display text-xl font-bold text-gray-800 mb-2">로그인이 필요해요</h1>
           <p className="text-gray-500 text-sm mb-8">로그인하고 모든 기능을 이용해보세요</p>
-          <Link
-            href="/login?redirect=/profile"
-            className="block w-full bg-primary-500 text-white text-center py-4 rounded-2xl font-bold text-base shadow-lg mb-3"
-          >
-            카카오 / 구글 로그인
-          </Link>
+          <Button variant="ribbon" size="xl" asChild className="w-full mb-3">
+            <Link href="/login?redirect=/profile">카카오 / 구글 로그인</Link>
+          </Button>
         </div>
       </div>
     );
@@ -164,7 +163,7 @@ export default function ProfilePage() {
 
       {/* Stats */}
       <div className="max-w-lg md:max-w-2xl lg:max-w-3xl mx-auto px-4 md:px-8 -mt-6">
-        <div className="bg-white rounded-2xl shadow-md p-4 grid grid-cols-3 gap-2 mb-4">
+        <CozyPanel padding="sm" className="grid grid-cols-3 gap-2 mb-4">
           {[
             { label: '총 뽑기', value: statsData?.totalPulls ?? user?.total_pulls ?? 0 },
             { label: '보유 카드', value: statsData?.cardCount ?? 0 },
@@ -175,12 +174,12 @@ export default function ProfilePage() {
               <div className="text-xs text-gray-400">{stat.label}</div>
             </div>
           ))}
-        </div>
+        </CozyPanel>
 
         {/* Parents Section */}
-        <div className="bg-white rounded-2xl shadow-sm p-4 mb-4">
+        <CozyPanel padding="sm" className="mb-4">
           <div className="flex items-center justify-between mb-3">
-            <h2 className="font-bold text-gray-800 flex items-center gap-2">
+            <h2 className="font-display font-bold text-gray-800 flex items-center gap-2">
               <Users className="w-4 h-4 text-primary-500" />
               부모 정보
             </h2>
@@ -253,12 +252,12 @@ export default function ProfilePage() {
               </button>
             </motion.div>
           )}
-        </div>
+        </CozyPanel>
 
         {/* Children Section */}
-        <div className="bg-white rounded-2xl shadow-sm p-4 mb-4">
+        <CozyPanel padding="sm" className="mb-4">
           <div className="flex items-center justify-between mb-3">
-            <h2 className="font-bold text-gray-800">👶 우리 아이</h2>
+            <h2 className="font-display font-bold text-gray-800">👶 우리 아이</h2>
             <button
               onClick={() => setShowAddChild(!showAddChild)}
               className="text-xs text-primary-600 font-semibold bg-primary-50 px-3 py-1.5 rounded-full"
@@ -397,12 +396,12 @@ export default function ProfilePage() {
               ))}
             </div>
           )}
-        </div>
+        </CozyPanel>
 
         {/* Menu Sections */}
         {MENU_SECTIONS.map(section => (
           <div key={section.title} className="mb-6">
-            <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider px-1 mb-2">
+            <h3 className="font-display text-xs font-bold text-gray-400 uppercase tracking-wider px-1 mb-2">
               {section.title}
             </h3>
             <div className="bg-white rounded-2xl shadow-sm overflow-hidden divide-y divide-gray-50">

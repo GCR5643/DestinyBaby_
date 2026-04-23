@@ -24,12 +24,13 @@ export interface OhengRadarChartProps {
 const MAX_VALUE = 5;
 
 // 오각형: 위쪽(木)부터 시계방향 — 木, 火, 土, 金, 水
+// oheng 팔레트 500 토큰 값 (tailwind.config.ts 기준)
 const AXES = [
-  { key: 'wood'  as const, label: '木', korean: '목', color: '#22C55E', emoji: '🌿' },
-  { key: 'fire'  as const, label: '火', korean: '화', color: '#EF4444', emoji: '🔥' },
-  { key: 'earth' as const, label: '土', korean: '토', color: '#EAB308', emoji: '🌍' },
-  { key: 'metal' as const, label: '金', korean: '금', color: '#F8FAFC', emoji: '⚡' },
-  { key: 'water' as const, label: '水', korean: '수', color: '#3B82F6', emoji: '💧' },
+  { key: 'wood'  as const, label: '木', korean: '목', color: '#5FA64A', emoji: '🌿' },
+  { key: 'fire'  as const, label: '火', korean: '화', color: '#E05A7A', emoji: '🔥' },
+  { key: 'earth' as const, label: '土', korean: '토', color: '#B88B3E', emoji: '🌍' },
+  { key: 'metal' as const, label: '金', korean: '금', color: '#6C7E94', emoji: '⚡' },
+  { key: 'water' as const, label: '水', korean: '수', color: '#4A5FA8', emoji: '💧' },
 ];
 
 // 5각형 꼭짓점 각도 계산 (위쪽이 -90도 = 12시 방향)
@@ -168,7 +169,7 @@ export default function OhengRadarChart({
                 dominantBaseline="auto"
                 fontSize={size * 0.07}
                 fontWeight="700"
-                fill={ax.color === '#F8FAFC' ? '#94A3B8' : ax.color}
+                fill={ax.color}
               >
                 {ax.label}
               </text>

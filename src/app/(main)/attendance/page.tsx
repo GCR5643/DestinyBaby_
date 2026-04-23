@@ -10,6 +10,8 @@ import MonthlyCalendar from '@/components/attendance/MonthlyCalendar';
 import FragmentBadge from '@/components/wallet/FragmentBadge';
 import { useRouter } from 'next/navigation';
 import { SKIP_AUTH } from '@/lib/auth/skip-auth';
+import { CozyPanel } from '@/components/cozy';
+import { Button } from '@/components/ui/button';
 
 // Milestone info
 const MILESTONES = [
@@ -79,16 +81,17 @@ export default function AttendancePage() {
     return (
       <div className="min-h-screen bg-ivory pb-24 flex flex-col items-center justify-center px-4">
         <CalendarDays className="w-16 h-16 text-primary-400 mb-4" />
-        <h1 className="text-xl font-bold text-gray-800 mb-2">출석 체크</h1>
+        <h1 className="font-display text-xl font-bold text-gray-800 mb-2">출석 체크</h1>
         <p className="text-gray-500 text-sm text-center mb-6">
           매일 출석하고 운명의 조각을 모아보세요
         </p>
-        <button
+        <Button
+          variant="ribbon"
+          size="lg"
           onClick={() => router.push('/login?redirect=/attendance')}
-          className="bg-primary-500 text-white px-6 py-3 rounded-xl font-bold text-sm"
         >
           로그인하고 시작하기
-        </button>
+        </Button>
       </div>
     );
   }
@@ -99,7 +102,7 @@ export default function AttendancePage() {
       <div className="bg-gradient-to-br from-primary-50 to-indigo-50 pt-12 pb-6 px-4">
         <div className="max-w-lg mx-auto">
           <div className="flex items-center justify-between mb-4">
-            <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+            <h1 className="font-display text-2xl font-bold text-gray-900 flex items-center gap-2">
               <CalendarDays className="w-7 h-7 text-primary-500" />
               출석 체크
             </h1>
@@ -127,8 +130,7 @@ export default function AttendancePage() {
         />
 
         {/* Milestone rewards */}
-        <div className="bg-white rounded-2xl p-4 shadow-sm">
-          <h3 className="font-bold text-gray-800 mb-3 text-sm">연속 출석 보너스</h3>
+        <CozyPanel title="연속 출석 보너스" padding="md">
           <div className="space-y-3">
             {MILESTONES.map((m) => {
               const achieved = streak >= m.days;
@@ -161,7 +163,7 @@ export default function AttendancePage() {
               );
             })}
           </div>
-        </div>
+        </CozyPanel>
       </div>
 
       {/* Success toast */}

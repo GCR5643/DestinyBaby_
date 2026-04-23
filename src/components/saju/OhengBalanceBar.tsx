@@ -5,12 +5,13 @@ import type { OhengElements } from './OhengRadarChart';
 
 // ─── 상수 ───────────────────────────────────────────────────────────────────
 
+// oheng 팔레트 500 토큰 값 (tailwind.config.ts 기준)
 const ELEMENTS = [
-  { key: 'wood'  as const, label: '木', korean: '목', color: '#22C55E' },
-  { key: 'fire'  as const, label: '火', korean: '화', color: '#EF4444' },
-  { key: 'earth' as const, label: '土', korean: '토', color: '#EAB308' },
-  { key: 'metal' as const, label: '金', korean: '금', color: '#94A3B8' },
-  { key: 'water' as const, label: '水', korean: '수', color: '#3B82F6' },
+  { key: 'wood'  as const, label: '木', korean: '목', color: '#5FA64A' },
+  { key: 'fire'  as const, label: '火', korean: '화', color: '#E05A7A' },
+  { key: 'earth' as const, label: '土', korean: '토', color: '#B88B3E' },
+  { key: 'metal' as const, label: '金', korean: '금', color: '#6C7E94' },
+  { key: 'water' as const, label: '水', korean: '수', color: '#4A5FA8' },
 ] as const;
 
 // 과다 >= 3, 부족 <= 0, 나머지 적정

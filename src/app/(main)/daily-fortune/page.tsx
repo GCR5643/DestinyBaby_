@@ -10,8 +10,9 @@ import FortuneCardLocked from '@/components/fortune/FortuneCardLocked';
 import FragmentBadge from '@/components/wallet/FragmentBadge';
 import Link from 'next/link';
 import { SKIP_AUTH } from '@/lib/auth/skip-auth';
-import type { FortuneCard as FortuneCardType } from '@/types';
+import type { FortuneCard as FortuneCardType, Element } from '@/types';
 import KoreanLuckyBag from '@/components/fortune/KoreanLuckyBag';
+import { OhengTheme, CozyPanel, OhengBadge } from '@/components/cozy';
 
 const CARD_META = [
   { type: 'fortune', emoji: '☀️', title: '오늘의 운세', color: 'gold-100' },
@@ -152,14 +153,19 @@ export default function DailyFortunePage() {
     year: 'numeric', month: 'long', day: 'numeric', weekday: 'long',
   });
 
+  // 오늘의 지배 원소: 선택된 아이의 사주 mainElement, 없으면 water 기본값
+  const selectedChild = children.find((c: { id: string }) => c.id === selectedChildId);
+  const todayElement: Element = (selectedChild as { id: string; saju_data?: { mainElement?: Element } } | undefined)?.saju_data?.mainElement ?? 'water';
+
   return (
-    <div className="min-h-screen bg-ivory pb-24">
+    <OhengTheme element={todayElement} as="div" className={`min-h-screen bg-oheng-${todayElement}-50/40 pb-24`}>
       {/* Header */}
-      <div className="bg-gradient-to-br from-amber-50 to-orange-50 pt-12 pb-6 px-4">
+      <div className={`bg-gradient-to-br from-oheng-${todayElement}-50 to-oheng-${todayElement}-100 pt-12 pb-6 px-4`}>
         <div className="max-w-lg mx-auto">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+              <h1 className="text-2xl font-display font-bold text-gray-900 flex items-center gap-2">
+                <OhengBadge element={todayElement} size="sm" />
                 {getPeriodLabel()}
               </h1>
               <p className="text-sm text-gray-500 mt-1">{todayStr}</p>
@@ -209,13 +215,13 @@ export default function DailyFortunePage() {
 
               {isGuest && (
                 <div className="space-y-3 pt-2">
-                  <div className="bg-gradient-to-r from-primary-50 to-secondary-50 rounded-2xl p-5 text-center">
+                  <CozyPanel element={todayElement} tone="pastel" padding="md" className="text-center">
                     <p className="text-sm font-bold text-gray-800 mb-1">매일 2회 무료 운세 + 조각 10개 🎁</p>
                     <p className="text-xs text-gray-500 mb-3">회원가입하면 오전·저녁 운세가 매일 무료!</p>
                     <Link href="/login?redirect=/daily-fortune" className="inline-flex items-center gap-2 bg-primary-500 text-white px-6 py-2.5 rounded-xl font-bold text-sm">
                       <LogIn className="w-4 h-4" /> 무료 회원가입
                     </Link>
-                  </div>
+                  </CozyPanel>
                 </div>
               )}
 
@@ -242,9 +248,9 @@ export default function DailyFortunePage() {
           ) : guestLimitReached ? (
             /* ===== 게스트 한도 초과 ===== */
             <motion.div key="limit" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
-              <div className="bg-white rounded-2xl p-8 shadow-sm text-center">
+              <CozyPanel element={todayElement} tone="pastel" padding="lg" className="text-center">
                 <div className="text-5xl mb-4">🔮</div>
-                <h2 className="text-lg font-bold text-gray-800 mb-2">이번 운세는 모두 확인했어요</h2>
+                <h2 className="text-lg font-display font-bold text-gray-800 mb-2">이번 운세는 모두 확인했어요</h2>
                 <p className="text-sm text-gray-500 mb-2">{getNextRenewalTime()} ✨</p>
                 <p className="text-sm text-gray-500 mb-6">
                   회원가입하면 오전·저녁 매일 2회 무료!<br />
@@ -253,13 +259,13 @@ export default function DailyFortunePage() {
                 <Link href="/login?redirect=/daily-fortune" className="inline-flex items-center gap-2 bg-primary-500 text-white px-8 py-3.5 rounded-xl font-bold text-base shadow-lg">
                   <LogIn className="w-5 h-5" /> 무료 회원가입하기
                 </Link>
-              </div>
+              </CozyPanel>
             </motion.div>
 
           ) : isGuest || (!isGuest && children.length === 0) ? (
             /* ===== 게스트 입력 폼 ===== */
             <motion.div key="guest-form" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
-              <div className="bg-white rounded-2xl p-6 shadow-sm">
+              <CozyPanel element={todayElement} padding="md">
                 <div className="text-center mb-5">
                   <p className="text-lg font-bold text-gray-800 mb-1">우리 아이 운세 보기 ✨</p>
                   <p className="text-sm text-gray-500">이름과 생년월일을 입력하면 바로 확인할 수 있어요</p>
@@ -325,7 +331,7 @@ export default function DailyFortunePage() {
                     <p className="text-sm text-amber-600 font-medium animate-pulse">운세 생성 중...</p>
                   )}
                 </div>
-              </div>
+              </CozyPanel>
               {CARD_META.map((meta, i) => (
                 <FortuneCardLocked key={meta.type} emoji={meta.emoji} title={meta.title} color={meta.color} index={i} />
               ))}
@@ -334,17 +340,17 @@ export default function DailyFortunePage() {
           ) : (
             /* ===== 로그인 유저: 복주머니 CTA ===== */
             <motion.div key="locked-user" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-3">
-              <div className="bg-white rounded-2xl p-6 shadow-sm">
+              <CozyPanel element={todayElement} padding="md">
                 {!todayFortuneExists ? (
                   <div className="text-center space-y-2">
-                    <p className="text-base font-bold text-gray-800">
+                    <p className="text-base font-display font-bold text-gray-800">
                       {getPeriodLabel()} <span className="text-amber-500">무료</span>예요! 🎉
                     </p>
                     <p className="text-xs text-gray-500">복주머니를 눌러서 운세를 확인하세요 🎊</p>
                   </div>
                 ) : (
                   <div className="text-center space-y-2">
-                    <p className="text-base font-bold text-gray-800">추가 아이 운세 보기</p>
+                    <p className="text-base font-display font-bold text-gray-800">추가 아이 운세 보기</p>
                     <p className="text-xs text-gray-500">운명의 조각 1개가 필요해요 (보유: {fragmentBalance}개)</p>
                     {fragmentBalance < 1 && (
                       <Link href="/profile/fragments" className="block w-full bg-gray-100 text-gray-600 py-3 rounded-xl font-bold text-sm text-center mt-3">
@@ -378,7 +384,7 @@ export default function DailyFortunePage() {
                     )}
                   </div>
                 )}
-              </div>
+              </CozyPanel>
 
               <p className="text-center text-xs text-gray-400">🔄 {getNextRenewalTime()}</p>
 
@@ -389,6 +395,6 @@ export default function DailyFortunePage() {
           )}
         </AnimatePresence>
       </div>
-    </div>
+    </OhengTheme>
   );
 }

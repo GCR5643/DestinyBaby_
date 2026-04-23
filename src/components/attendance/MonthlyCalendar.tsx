@@ -66,13 +66,13 @@ export default function MonthlyCalendar({ year, month, checkinDates, onMonthChan
   };
 
   return (
-    <div className="bg-white rounded-2xl p-4 shadow-sm">
+    <div className="bg-white rounded-card border border-primary-100 shadow-soft p-4">
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <button onClick={handlePrev} className="p-2 rounded-lg hover:bg-gray-100 transition">
           <ChevronLeft className="w-5 h-5 text-gray-600" />
         </button>
-        <h3 className="font-bold text-gray-800">
+        <h3 className="font-display font-bold text-gray-800">
           {year}년 {MONTH_NAMES[month - 1]}
         </h3>
         <button

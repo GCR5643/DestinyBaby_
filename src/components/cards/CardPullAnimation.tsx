@@ -3,10 +3,11 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { Card, CardSajuExplanation, Element } from '@/types';
-import { getGradeColor, getElementEmoji } from '@/lib/utils';
+import { getElementEmoji } from '@/lib/utils';
 import { cn } from '@/lib/utils';
 import CardBackComponent from './CardBack';
 import SajuConnectionPanel from './SajuConnectionPanel';
+import { CardFrame } from '@/components/cozy';
 
 
 // ─── 카드 뒷면 (CardBack 컴포넌트 래퍼) ────────────────────────────────────
@@ -23,70 +24,36 @@ function CardBack({ onClick, grade }: { onClick: () => void; grade: string }) {
   );
 }
 
-// ─── 카드 앞면 (CardDisplay 인라인) ───────────────────────────────────────
-
-const GRADE_LABELS: Record<string, string> = {
-  N: '일반', R: '레어', SR: '슈퍼레어', SSR: '초레어', UR: '울트라레어', SSS: '신화',
-};
+// ─── 카드 앞면 — CardFrame 기반 파스텔 디자인 ────────────────────────────
 
 function CardFront({ card }: { card: Card }) {
-  const isSSS = card.grade === 'SSS';
+  // element가 없으면 earth 기본값 사용
+  const element = card.element ?? 'earth';
+
   return (
-    <div
-      className="relative w-52 h-[295px] rounded-2xl overflow-hidden shadow-lg"
-      style={{
-        background: isSSS
-          ? 'linear-gradient(135deg, #1a0a2e, #2d1b69, #6c5ce7)'
-          : 'linear-gradient(135deg, #1A0A2E, #2D1B69)',
-        boxShadow: isSSS
-          ? '0 0 40px rgba(236,72,153,0.6)'
-          : card.grade === 'UR' ? '0 0 30px rgba(239,68,68,0.5)'
-          : card.grade === 'SSR' ? '0 0 25px rgba(245,158,11,0.5)'
-          : card.grade === 'SR' ? '0 0 20px rgba(139,92,246,0.4)'
-          : card.grade === 'R' ? '0 0 15px rgba(59,130,246,0.3)'
-          : undefined,
-      }}
+    <CardFrame
+      element={element}
+      grade={card.grade}
+      title={card.name}
+      width={208}
+      height={295}
     >
-      {/* 등급 뱃지 */}
-      <div className="absolute top-2 right-2 z-10">
-        <div
-          className="px-2 py-0.5 rounded-full text-xs font-black text-white"
-          style={{ backgroundColor: getGradeColor(card.grade) }}
-        >
-          {card.grade}
-        </div>
-      </div>
-      {/* 오행 아이콘 */}
-      {card.element && (
-        <div className="absolute top-2 left-2 z-10 text-lg">
-          {getElementEmoji(card.element)}
-        </div>
-      )}
-      {/* 카드 아트 */}
-      <div className="absolute inset-0 flex items-center justify-center">
-        <div className="text-5xl opacity-30">✦</div>
-      </div>
-      {/* 카드 이름 */}
-      <div className="absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-black/80 to-transparent">
-        <p className="text-white font-bold text-sm truncate">{card.name}</p>
-        <p className="text-white/50 text-xs">{GRADE_LABELS[card.grade] ?? card.grade}</p>
-      </div>
-      {/* SSS 무지개 테두리 */}
-      {isSSS && (
-        <div
-          className="absolute inset-0 rounded-2xl"
-          style={{
-            background: 'linear-gradient(45deg, #f093fb, #f5576c, #4facfe, #f9ca24, #f093fb)',
-            padding: '2px',
-          }}
-        >
-          <div
-            className="w-full h-full rounded-2xl"
-            style={{ background: 'linear-gradient(135deg, #1a0a2e, #2d1b69)' }}
-          />
+      {/* 카드 일러스트 — imageUrl 있으면 이미지, 없으면 치비 실루엣 플레이스홀더 */}
+      {card.image_url ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={card.image_url}
+          alt={card.name}
+          className="w-full h-full object-cover"
+        />
+      ) : (
+        <div className="flex flex-col items-center justify-center gap-2 select-none">
+          <div className="w-24 h-24 rounded-full bg-white/50 flex items-center justify-center shadow-soft">
+            <span className="text-4xl">{getElementEmoji(element)}</span>
+          </div>
         </div>
       )}
-    </div>
+    </CardFrame>
   );
 }
 
@@ -184,12 +151,12 @@ function FlippableCard({ card, autoFlip, onFlipped, simple = false }: FlippableC
           {simple ? (
             <div
               className={cn('relative rounded-2xl overflow-hidden cursor-pointer', w, h)}
-              style={{ background: 'linear-gradient(135deg, #1A0A2E 0%, #2D1B69 100%)' }}
+              style={{ background: 'linear-gradient(135deg, #f0effe 0%, #ffe8ee 100%)' }}
             >
               <div className="absolute inset-0 flex items-center justify-center">
-                <div className="text-4xl opacity-20">✦</div>
+                <div className="text-4xl opacity-40 text-primary-400">✦</div>
               </div>
-              <div className="absolute inset-2 border border-primary-400/30 rounded-xl" />
+              <div className="absolute inset-2 border border-primary-300/40 rounded-xl" />
             </div>
           ) : (
             <CardBack onClick={doFlip} grade={card.grade} />
@@ -304,12 +271,12 @@ export default function CardPullAnimation({
   return (
     <div
       className="fixed inset-0 z-50 flex flex-col items-center justify-start overflow-y-auto py-10 px-4"
-      style={{ background: 'linear-gradient(135deg, #1A0A2E 0%, #2D1B69 100%)' }}
+      style={{ background: 'linear-gradient(160deg, #f0effe 0%, #ffe8ee 50%, #FBF4E2 100%)' }}
     >
       {/* 건너뛰기 버튼 */}
       <button
         onClick={onSkip}
-        className="fixed top-4 right-4 text-white/50 text-sm px-4 py-2 rounded-full border border-white/20 z-10"
+        className="fixed top-4 right-4 text-gray-500/70 text-sm px-4 py-2 rounded-full border border-gray-300/50 bg-white/60 backdrop-blur-sm z-10"
       >
         건너뛰기
       </button>
@@ -327,11 +294,11 @@ export default function CardPullAnimation({
             <motion.div
               animate={{ y: [0, -15, 0] }}
               transition={{ duration: 1.2, repeat: Infinity }}
-              className="w-40 h-56 bg-gradient-to-br from-primary-600 to-indigo-800 rounded-2xl shadow-2xl border border-primary-400/40 flex items-center justify-center"
+              className="w-40 h-56 bg-gradient-to-br from-secondary-200 to-primary-200 rounded-2xl shadow-soft-lg border border-primary-200/60 flex items-center justify-center"
             >
               <div className="text-5xl">✦</div>
             </motion.div>
-            <p className="text-white/80 text-sm animate-pulse">운명의 팩이 도착했어요!</p>
+            <p className="text-gray-600 text-sm animate-pulse">운명의 팩이 도착했어요!</p>
           </motion.div>
         )}
 

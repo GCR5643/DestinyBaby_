@@ -7,6 +7,8 @@ import { useUserStore } from '@/stores/userStore';
 import { trpc } from '@/lib/trpc/client';
 import { SKIP_AUTH } from '@/lib/auth/skip-auth';
 import Link from 'next/link';
+import { CozyPanel } from '@/components/cozy';
+import { Button } from '@/components/ui/button';
 
 const FRAGMENT_PACKS = [
   { id: 'starter', fragments: 10, price: 1.00, label: '맛보기', badge: null, popular: false },
@@ -37,7 +39,7 @@ export default function FragmentsPage() {
           </button>
           <div className="text-center text-white">
             <Gem className="w-12 h-12 mx-auto mb-3 text-purple-200" />
-            <h1 className="text-2xl font-bold mb-1">운명의 조각</h1>
+            <h1 className="font-display text-2xl font-bold mb-1">운명의 조각</h1>
             <p className="text-white/70 text-sm mb-4">조각으로 다양한 운명 서비스를 이용하세요</p>
             <div className="inline-flex items-center gap-2 bg-white/20 rounded-full px-6 py-3">
               <Gem className="w-5 h-5 text-purple-200" />
@@ -50,8 +52,8 @@ export default function FragmentsPage() {
 
       <div className="max-w-lg mx-auto px-4 -mt-4 space-y-6">
         {/* 조각 사용처 */}
-        <div className="bg-white rounded-2xl p-5 shadow-sm">
-          <h2 className="font-bold text-gray-800 mb-3 flex items-center gap-2">
+        <CozyPanel padding="md">
+          <h2 className="font-display font-bold text-gray-800 mb-3 flex items-center gap-2">
             <Sparkles className="w-4 h-4 text-purple-500" />
             조각 사용처
           </h2>
@@ -69,11 +71,11 @@ export default function FragmentsPage() {
               </div>
             ))}
           </div>
-        </div>
+        </CozyPanel>
 
         {/* 조각 충전 */}
-        <div className="bg-white rounded-2xl p-5 shadow-sm">
-          <h2 className="font-bold text-gray-800 mb-1">조각 충전하기</h2>
+        <CozyPanel padding="md">
+          <h2 className="font-display font-bold text-gray-800 mb-1">조각 충전하기</h2>
           <p className="text-xs text-gray-500 mb-4">기본 10개 = $1 · 많이 살수록 할인!</p>
           <div className="space-y-3">
             {FRAGMENT_PACKS.map((pack) => (
@@ -110,11 +112,11 @@ export default function FragmentsPage() {
               </motion.button>
             ))}
           </div>
-        </div>
+        </CozyPanel>
 
         {/* 무료 조각 안내 */}
-        <div className="bg-gradient-to-r from-amber-50 to-orange-50 rounded-2xl p-5">
-          <h3 className="font-bold text-gray-800 mb-2">💡 무료로 조각 받는 법</h3>
+        <CozyPanel element="earth" tone="pastel" padding="md">
+          <h3 className="font-display font-bold text-gray-800 mb-2">💡 무료로 조각 받는 법</h3>
           <div className="space-y-2">
             {[
               { label: '회원가입', value: '10개', done: !!user },
@@ -130,11 +132,11 @@ export default function FragmentsPage() {
             ))}
           </div>
           {!user && (
-            <Link href="/login?redirect=/profile/fragments" className="block mt-3 text-center bg-primary-500 text-white py-2.5 rounded-xl font-bold text-sm">
-              회원가입하고 조각 10개 받기
-            </Link>
+            <Button variant="ribbon" size="default" asChild className="w-full mt-3">
+              <Link href="/login?redirect=/profile/fragments">회원가입하고 조각 10개 받기</Link>
+            </Button>
           )}
-        </div>
+        </CozyPanel>
       </div>
     </div>
   );

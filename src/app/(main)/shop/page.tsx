@@ -2,6 +2,8 @@
 
 import { motion } from 'framer-motion';
 import { ShoppingBag, Star } from 'lucide-react';
+import { CozyPanel } from '@/components/cozy';
+import { Button } from '@/components/ui/button';
 
 const SHOP_ITEMS = [
   { id: '1', name: '봄 이벤트 팩', description: '봄 시즌 한정 카드 5장', price: 4900, cardCount: 5, isLimited: true, emoji: '🌸' },
@@ -15,7 +17,7 @@ export default function ShopPage() {
     <div className="min-h-screen bg-ivory pb-24">
       <div className="bg-gradient-to-br from-gold-400 to-gold-500 pt-12 pb-8 px-4 text-center">
         <ShoppingBag className="w-8 h-8 mx-auto mb-3 text-gray-900" />
-        <h1 className="text-2xl font-bold text-gray-900 mb-1">카드 샵</h1>
+        <h1 className="font-display text-2xl font-bold text-gray-900 mb-1">카드 샵</h1>
         <p className="text-sm text-gray-700">특별한 카드 팩을 구매해보세요</p>
       </div>
 
@@ -27,34 +29,36 @@ export default function ShopPage() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: i * 0.1 }}
-            className="bg-white rounded-2xl overflow-hidden shadow-md"
           >
-            <div className="flex items-center gap-4 p-5">
-              <div className="w-16 h-16 bg-primary-50 rounded-2xl flex items-center justify-center text-3xl flex-shrink-0">
-                {item.emoji}
-              </div>
-              <div className="flex-1">
-                <div className="flex items-center gap-2">
-                  <h3 className="font-bold text-gray-800">{item.name}</h3>
-                  {item.isLimited && (
-                    <span className="bg-red-100 text-red-600 text-xs px-2 py-0.5 rounded-full font-semibold">한정</span>
-                  )}
+            <CozyPanel hover padding="none">
+              <div className="flex items-center gap-4 p-5">
+                <div className="w-16 h-16 bg-primary-50 rounded-2xl flex items-center justify-center text-3xl flex-shrink-0">
+                  {item.emoji}
                 </div>
-                <p className="text-xs text-gray-500 mt-0.5">{item.description}</p>
-                <div className="flex items-center gap-1 mt-1">
-                  {Array.from({ length: Math.min(item.cardCount, 5) }).map((_, j) => (
-                    <Star key={j} className="w-3 h-3 text-gold-400 fill-gold-400" />
-                  ))}
-                  <span className="text-xs text-gray-400">카드 {item.cardCount}장</span>
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-display font-bold text-gray-800">{item.name}</h3>
+                    {item.isLimited && (
+                      <span className="bg-red-100 text-red-600 text-xs px-2 py-0.5 rounded-full font-semibold">한정</span>
+                    )}
+                  </div>
+                  <p className="text-xs text-gray-500 mt-0.5">{item.description}</p>
+                  <div className="flex items-center gap-1 mt-1">
+                    {Array.from({ length: Math.min(item.cardCount, 5) }).map((_, j) => (
+                      <Star key={j} className="w-3 h-3 text-gold-400 fill-gold-400" />
+                    ))}
+                    <span className="text-xs text-gray-400">카드 {item.cardCount}장</span>
+                  </div>
                 </div>
+                <Button
+                  variant="pastel"
+                  size="sm"
+                  onClick={() => { const d = document.createElement('div'); d.className='fixed top-4 left-1/2 -translate-x-1/2 bg-gray-800 text-white px-5 py-2.5 rounded-xl text-sm z-50 shadow-lg'; d.textContent='💎 결제 기능이 곧 오픈됩니다!'; document.body.appendChild(d); setTimeout(()=>d.remove(),2500); }}
+                >
+                  {item.price.toLocaleString()}원
+                </Button>
               </div>
-              <button
-                onClick={() => { const d = document.createElement('div'); d.className='fixed top-4 left-1/2 -translate-x-1/2 bg-gray-800 text-white px-5 py-2.5 rounded-xl text-sm z-50 shadow-lg'; d.textContent='💎 결제 기능이 곧 오픈됩니다!'; document.body.appendChild(d); setTimeout(()=>d.remove(),2500); }}
-                className="bg-primary-500 text-white py-2 px-4 rounded-xl font-bold text-sm flex-shrink-0"
-              >
-                {item.price.toLocaleString()}원
-              </button>
-            </div>
+            </CozyPanel>
           </motion.div>
         ))}
         </div>

@@ -2,17 +2,28 @@
 
 import type { Grade } from '@/types';
 
+// 등급별 테두리 색상 — 파스텔 팔레트
 const GRADE_BORDER_COLOR: Record<Grade, string> = {
-  N: 'rgba(149,165,166,0.4)',
-  R: 'rgba(59,130,246,0.6)',
-  SR: 'rgba(139,92,246,0.7)',
-  SSR: 'rgba(245,158,11,0.8)',
-  UR: 'rgba(239,68,68,0.9)',
+  N:   'rgba(184,188,197,0.5)',
+  R:   'rgba(94,140,232,0.55)',
+  SR:  'rgba(176,125,229,0.65)',
+  SSR: 'rgba(244,197,66,0.75)',
+  UR:  'rgba(233,74,110,0.85)',
   SSS: 'transparent',
 };
 
-// 별자리 패턴 SVG — 간단한 점 배열
-const STAR_POSITIONS = [
+// 등급별 배경 그라디언트 — 밝은 파스텔
+const GRADE_BG: Record<Grade, string> = {
+  N:   'linear-gradient(135deg, #f8f5ff 0%, #f0effe 100%)',
+  R:   'linear-gradient(135deg, #eef2fc 0%, #e4e1fd 100%)',
+  SR:  'linear-gradient(135deg, #f5f0ff 0%, #ede8ff 100%)',
+  SSR: 'linear-gradient(135deg, #fffde8 0%, #fff3c2 100%)',
+  UR:  'linear-gradient(135deg, #fff0f3 0%, #ffd6dd 100%)',
+  SSS: 'conic-gradient(from 180deg at 50% 50%, #ffb8c6, #b0a7f8, #8fd47b, #f4c542, #ff8fa8, #ffb8c6)',
+};
+
+// 오행 심볼 패턴 SVG — 꽃별/구름 도트 배열
+const DOT_POSITIONS = [
   { x: 15, y: 12 }, { x: 78, y: 20 }, { x: 42, y: 8 },
   { x: 88, y: 55 }, { x: 10, y: 65 }, { x: 55, y: 30 },
   { x: 25, y: 80 }, { x: 70, y: 85 }, { x: 92, y: 30 },
@@ -36,19 +47,11 @@ export default function CardBack({ grade, width = 208, height = 295 }: CardBackP
       style={{
         width,
         height,
-        background: 'linear-gradient(135deg, #0D0720 0%, #1A0A2E 40%, #2D1B69 100%)',
-        border: isSSS
-          ? '2px solid transparent'
-          : `2px solid ${borderColor}`,
-        backgroundClip: isSSS ? undefined : undefined,
-        boxShadow: isSSS
-          ? '0 0 0 2px transparent'
-          : undefined,
-        // SSS rainbow border via outline trick
-        outline: isSSS ? 'none' : undefined,
+        background: GRADE_BG[grade],
+        border: isSSS ? '2px solid transparent' : `2px solid ${borderColor}`,
       }}
     >
-      {/* SSS rainbow border */}
+      {/* SSS 무지개 테두리 */}
       {isSSS && (
         <div
           className="absolute inset-0 rounded-2xl pointer-events-none z-10"
@@ -62,35 +65,35 @@ export default function CardBack({ grade, width = 208, height = 295 }: CardBackP
         />
       )}
 
-      {/* 별자리 배경 패턴 */}
+      {/* 소프트 도트 패턴 배경 */}
       <svg
         className="absolute inset-0 w-full h-full"
         viewBox="0 0 100 100"
         preserveAspectRatio="none"
         aria-hidden="true"
       >
-        {STAR_POSITIONS.map((s, i) => (
+        {DOT_POSITIONS.map((s, i) => (
           <circle
             key={i}
             cx={s.x}
             cy={s.y}
-            r={i % 3 === 0 ? 0.8 : 0.5}
-            fill="white"
-            opacity={0.25 + (i % 4) * 0.1}
+            r={i % 3 === 0 ? 1.0 : 0.6}
+            fill={isSSS ? '#f093fb' : '#6C5CE7'}
+            opacity={0.12 + (i % 4) * 0.06}
           />
         ))}
-        {/* 별자리 연결선 */}
-        <line x1="15" y1="12" x2="42" y2="8" stroke="white" strokeWidth="0.2" opacity="0.1" />
-        <line x1="42" y1="8" x2="78" y2="20" stroke="white" strokeWidth="0.2" opacity="0.1" />
-        <line x1="55" y1="30" x2="88" y2="55" stroke="white" strokeWidth="0.2" opacity="0.1" />
-        <line x1="10" y1="65" x2="25" y2="80" stroke="white" strokeWidth="0.2" opacity="0.1" />
-        <line x1="60" y1="70" x2="70" y2="85" stroke="white" strokeWidth="0.2" opacity="0.1" />
+        {/* 부드러운 연결선 */}
+        <line x1="15" y1="12" x2="42" y2="8"  stroke="#6C5CE7" strokeWidth="0.25" opacity="0.08" />
+        <line x1="42" y1="8"  x2="78" y2="20" stroke="#6C5CE7" strokeWidth="0.25" opacity="0.08" />
+        <line x1="55" y1="30" x2="88" y2="55" stroke="#6C5CE7" strokeWidth="0.25" opacity="0.08" />
+        <line x1="10" y1="65" x2="25" y2="80" stroke="#6C5CE7" strokeWidth="0.25" opacity="0.08" />
+        <line x1="60" y1="70" x2="70" y2="85" stroke="#6C5CE7" strokeWidth="0.25" opacity="0.08" />
       </svg>
 
       {/* 내부 테두리 광선 */}
       <div
         className="absolute inset-3 rounded-xl pointer-events-none"
-        style={{ border: `1px solid ${isSSS ? 'rgba(249,202,36,0.3)' : 'rgba(255,255,255,0.1)'}` }}
+        style={{ border: `1px solid ${isSSS ? 'rgba(249,202,36,0.4)' : 'rgba(108,92,231,0.15)'}` }}
       />
 
       {/* 중앙 운명 심볼 */}
@@ -99,14 +102,14 @@ export default function CardBack({ grade, width = 208, height = 295 }: CardBackP
         <div
           className="text-5xl"
           style={{
-            opacity: 0.7,
+            opacity: 0.55,
             filter: isSSS
-              ? 'drop-shadow(0 0 12px rgba(249,202,36,0.9))'
+              ? 'drop-shadow(0 0 10px rgba(249,202,36,0.8))'
               : grade === 'UR'
-              ? 'drop-shadow(0 0 10px rgba(239,68,68,0.8))'
+              ? 'drop-shadow(0 0 8px rgba(233,74,110,0.6))'
               : grade === 'SSR'
-              ? 'drop-shadow(0 0 8px rgba(245,158,11,0.7))'
-              : 'drop-shadow(0 0 6px rgba(108,92,231,0.6))',
+              ? 'drop-shadow(0 0 7px rgba(244,197,66,0.6))'
+              : 'drop-shadow(0 0 5px rgba(108,92,231,0.4))',
           }}
         >
           ✦
@@ -116,23 +119,23 @@ export default function CardBack({ grade, width = 208, height = 295 }: CardBackP
           className="text-sm font-bold tracking-widest"
           style={{
             color: isSSS
-              ? 'rgba(249,202,36,0.8)'
+              ? 'rgba(200,133,0,0.75)'
               : grade === 'UR'
-              ? 'rgba(239,68,68,0.7)'
-              : 'rgba(162,155,254,0.6)',
-            textShadow: '0 0 8px currentColor',
+              ? 'rgba(200,50,80,0.65)'
+              : 'rgba(108,92,231,0.55)',
+            textShadow: '0 1px 4px rgba(255,255,255,0.8)',
           }}
         >
           運命
         </div>
       </div>
 
-      {/* 상단 빛 효과 */}
+      {/* 상단 빛 줄기 */}
       <div
         className="absolute top-0 left-1/2 -translate-x-1/2 w-24 h-1 rounded-full pointer-events-none"
         style={{
           background: isSSS
-            ? 'linear-gradient(90deg,transparent,rgba(249,202,36,0.6),transparent)'
+            ? 'linear-gradient(90deg,transparent,rgba(249,202,36,0.5),transparent)'
             : `linear-gradient(90deg,transparent,${borderColor},transparent)`,
         }}
       />

@@ -13,6 +13,7 @@ import OhengBalanceBar from '@/components/saju/OhengBalanceBar';
 import type { OhengElements } from '@/components/saju/OhengRadarChart';
 import { recommendCareers, ELEMENT_COLOR_CLASS, ELEMENT_ICON } from '@/lib/saju/career-matcher';
 import type { CareerRecommendation } from '@/lib/saju/career-matcher';
+import { OhengTheme } from '@/components/cozy';
 
 // ─────────────────────────────────────────────
 // Shared helpers
@@ -203,13 +204,14 @@ interface SajuForm {
   birthTime: string;
 }
 
-function MySajuTab() {
+function MySajuTab({ onMainElement }: { onMainElement?: (el: Element) => void }) {
   const [result, setResult] = useState<SajuResult | null>(null);
   const { register, handleSubmit } = useForm<SajuForm>();
 
   const onSubmit = (data: SajuForm) => {
     const saju = calculateSaju(data.birthDate, data.birthTime || undefined);
     setResult(saju);
+    onMainElement?.(saju.mainElement);
   };
 
   return (
@@ -693,13 +695,14 @@ type TabId = typeof TABS[number]['id'];
 
 export default function SajuPage() {
   const [activeTab, setActiveTab] = useState<TabId>('my');
+  const [mainElement, setMainElement] = useState<Element | undefined>(undefined);
 
   return (
-    <div className="min-h-screen bg-ivory pb-24">
+    <OhengTheme element={mainElement} as="div" className="min-h-screen bg-ivory pb-24">
       {/* Header */}
       <div className="bg-gradient-to-br from-primary-600 to-primary-400 pt-12 pb-8 px-4 text-white text-center">
         <div className="text-4xl mb-3">🔮</div>
-        <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold mb-1">사주 분석</h1>
+        <h1 className="text-2xl md:text-3xl lg:text-4xl font-display mb-1">사주 분석</h1>
         <p className="text-sm opacity-80">생년월일시로 사주를 분석해드려요</p>
       </div>
 
@@ -726,7 +729,7 @@ export default function SajuPage() {
         <AnimatePresence mode="wait">
           {activeTab === 'my' && (
             <motion.div key="my" initial={{ opacity: 0, x: -16 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 16 }} transition={{ duration: 0.18 }}>
-              <MySajuTab />
+              <MySajuTab onMainElement={setMainElement} />
             </motion.div>
           )}
           {activeTab === 'compat' && (
@@ -741,6 +744,6 @@ export default function SajuPage() {
           )}
         </AnimatePresence>
       </div>
-    </div>
+    </OhengTheme>
   );
 }

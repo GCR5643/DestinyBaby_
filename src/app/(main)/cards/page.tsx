@@ -13,6 +13,7 @@ import { useRouter } from 'next/navigation';
 import type { Card, UserCard, Grade, Element, CardSajuExplanation } from '@/types';
 import { pickCardTemplate } from '@/lib/cards/card-catalog';
 import { SKIP_AUTH } from '@/lib/auth/skip-auth';
+import { CozyPanel, RibbonBanner } from '@/components/cozy';
 
 function generateGuestCard(): Card {
   const grades: Grade[] = ['N', 'N', 'N', 'N', 'R', 'R', 'R', 'SR', 'SR', 'SSR'];
@@ -173,15 +174,15 @@ export default function CardsPage() {
 
       {/* Header */}
       <div className="pt-12 pb-6 px-4 md:px-8 text-center text-white">
-        <h1 className="text-2xl md:text-3xl font-bold mb-1">운명 카드 뽑기</h1>
+        <h1 className="text-2xl md:text-3xl font-display mb-1">운명 카드 뽑기</h1>
         <p className="text-sm text-white/60">사주로 결정되는 나만의 운명 카드</p>
         {user && !isGuest && (
           <div className="flex items-center justify-center gap-3 mt-2">
             <span className="text-sm text-gold-400 font-semibold">{user.credits} 크레딧</span>
             {freePullsRemaining > 0 && (
-              <span className="text-xs bg-green-500/20 text-green-300 border border-green-500/30 px-2 py-0.5 rounded-full font-medium">
+              <RibbonBanner size="sm" className="mt-1">
                 무료 뽑기 {freePullsRemaining}회 남음
-              </span>
+              </RibbonBanner>
             )}
           </div>
         )}
@@ -246,7 +247,7 @@ export default function CardsPage() {
                   transition={{ duration: 1.8, repeat: Infinity }}
                   onClick={handleDailyFreePull}
                   disabled={dailyFreePullMutation.isPending}
-                  className="w-full bg-gradient-to-r from-purple-600 to-violet-600 text-white py-4 rounded-2xl font-bold flex items-center justify-center gap-2 disabled:opacity-50"
+                  className="w-full bg-gradient-to-r from-purple-600 to-violet-600 text-white py-5 rounded-2xl font-display text-lg flex items-center justify-center gap-2 disabled:opacity-50 shadow-glow-sr"
                 >
                   🎁 오늘의 무료 뽑기
                 </motion.button>
@@ -277,11 +278,11 @@ export default function CardsPage() {
                 whileTap={{ scale: 0.96 }}
                 onClick={() => handlePull(10)}
                 disabled={pullMutation.isPending}
-                className="bg-gradient-to-r from-gold-400 to-gold-500 text-gray-900 py-4 rounded-2xl font-bold flex flex-col items-center gap-1 disabled:opacity-50"
+                className="bg-gradient-to-r from-gold-400 to-gold-500 text-gray-900 py-4 rounded-2xl font-display text-base flex flex-col items-center gap-1 disabled:opacity-50 shadow-glow-ssr"
               >
                 <Package className="w-5 h-5" />
                 <span>10회 뽑기</span>
-                <span className="text-xs opacity-70">9 크레딧 (10% 할인)</span>
+                <span className="text-xs opacity-70 font-sans font-normal">9 크레딧 (10% 할인)</span>
               </motion.button>
             </div>
 
@@ -290,16 +291,16 @@ export default function CardsPage() {
             )}
 
             {/* Probability info */}
-            <div className="bg-white/5 rounded-2xl p-4">
-              <h3 className="text-white/80 text-sm font-semibold mb-2">뽑기 확률</h3>
+            <CozyPanel padding="md" className="bg-white/5 border-white/10">
+              <h3 className="text-white/80 text-sm font-display mb-2">뽑기 확률</h3>
               <div className="grid grid-cols-6 gap-2">
                 {[
                   { grade: 'N', prob: '40%', cls: 'text-gray-400' },
-                  { grade: 'R', prob: '30%', cls: 'text-blue-500' },
-                  { grade: 'SR', prob: '15%', cls: 'text-violet-500' },
-                  { grade: 'SSR', prob: '8%', cls: 'text-amber-500' },
-                  { grade: 'UR', prob: '4%', cls: 'text-red-500' },
-                  { grade: 'SSS', prob: '3%', cls: 'text-pink-500' },
+                  { grade: 'R', prob: '30%', cls: 'text-blue-400' },
+                  { grade: 'SR', prob: '15%', cls: 'text-violet-400' },
+                  { grade: 'SSR', prob: '8%', cls: 'text-amber-400' },
+                  { grade: 'UR', prob: '4%', cls: 'text-red-400' },
+                  { grade: 'SSS', prob: '3%', cls: 'text-pink-400' },
                 ].map(g => (
                   <div key={g.grade} className="text-center">
                     <div className={`text-xs font-bold ${g.cls}`}>{g.grade}</div>
@@ -312,7 +313,7 @@ export default function CardsPage() {
                   확률 안내 &gt;
                 </Link>
               </div>
-            </div>
+            </CozyPanel>
           </div>
         ) : (
           <div className="bg-white/5 rounded-2xl p-4">
