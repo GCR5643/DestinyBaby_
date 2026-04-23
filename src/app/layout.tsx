@@ -3,8 +3,6 @@ import "./globals.css";
 import { Providers } from "@/components/layout/Providers";
 import { KakaoScript } from "@/components/layout/KakaoScript";
 
-// prerender 시 "Element type is invalid" 오류 회피.
-// Supabase auth + tRPC 동적 렌더 중심 앱이라 SSG 이점 없음.
 export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
@@ -18,11 +16,24 @@ export const metadata: Metadata = {
   },
 };
 
+// 격리 테스트: Providers/KakaoScript 없이 렌더링
+const ISOLATE = process.env.NEXT_PUBLIC_ISOLATE_ROOT === '1';
+
 export default function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  if (ISOLATE) {
+    return (
+      <html lang="ko">
+        <body>
+          <div style={{ padding: 20, background: '#eff' }}>ISOLATE MODE — Providers/Kakao OFF</div>
+          {children}
+        </body>
+      </html>
+    );
+  }
   return (
     <html lang="ko">
       <body>
