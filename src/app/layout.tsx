@@ -3,6 +3,10 @@ import "./globals.css";
 import { Providers } from "@/components/layout/Providers";
 import { KakaoScript } from "@/components/layout/KakaoScript";
 
+// prerender 시 "Element type is invalid" 오류 회피.
+// Supabase auth + tRPC 동적 렌더 중심 앱이라 SSG 이점 없음.
+export const dynamic = 'force-dynamic';
+
 export const metadata: Metadata = {
   title: "운명의 아이 (Destiny Baby)",
   description: "AI가 사주로 찾아주는 우리 아이 이름 · 운명 카드",
