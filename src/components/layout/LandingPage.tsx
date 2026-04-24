@@ -8,7 +8,7 @@ import { useRouter } from 'next/navigation';
 import { useParentStore } from '@/stores/parentStore';
 import { useUserStore } from '@/stores/userStore';
 import { Button } from '@/components/ui/button';
-import { CozyPanel, CardFrame } from '@/components/cozy';
+import { CozyPanel } from '@/components/cozy';
 
 // 스파클 데코 데이터 (히어로 배경 장식)
 const SPARKLES = [
@@ -135,30 +135,7 @@ export default function LandingPage() {
             기존 작명소 10~30만원 → <strong className="text-gold-400">무료</strong>로!
           </p>
 
-          {/* 데코 카드 - 히어로 예시 */}
-          <div className="flex justify-center mb-6">
-            <motion.div
-              animate={{ y: [0, -8, 0] }}
-              transition={{ duration: 3.5, repeat: Infinity, ease: 'easeInOut' }}
-              className="animate-card-float"
-            >
-              <CardFrame
-                element="wood"
-                grade="SSS"
-                title="동방청룡"
-                width={140}
-                height={198}
-                className="mx-auto"
-              >
-                <div className="flex flex-col items-center justify-center gap-1">
-                  <div className="text-6xl">🌿</div>
-                  <div className="font-display text-oheng-wood-700 text-sm font-bold mt-1">木의 수호자</div>
-                </div>
-              </CardFrame>
-            </motion.div>
-          </div>
-
-          <div className="flex flex-col gap-2.5">
+          <div className="flex flex-col gap-2.5 mt-6">
             <Button asChild variant="hero" size="xl" className="w-full">
               <Link href="/naming">
                 <Sparkles className="w-5 h-5 text-gold-300" />
