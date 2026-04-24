@@ -24,7 +24,22 @@ export async function updateSession(request: NextRequest) {
     }
   );
 
-  const { data: { user } } = await supabase.auth.getUser();
+  // Supabase 호출에 3초 타임아웃 — 프로젝트 정지/DNS 실패 시 전체 앱 504 방지
+  const getUserWithTimeout = async () => {
+    const timeout = new Promise<{ data: { user: null } }>((resolve) =>
+      setTimeout(() => {
+        console.error('[Middleware] Supabase getUser 3s timeout — fail-open');
+        resolve({ data: { user: null } });
+      }, 3000)
+    );
+    try {
+      return await Promise.race([supabase.auth.getUser(), timeout]);
+    } catch (err) {
+      console.error('[Middleware] Supabase getUser error:', err);
+      return { data: { user: null } } as const;
+    }
+  };
+  const { data: { user } } = await getUserWithTimeout();
 
   // SKIP_AUTH: 개발 환경 전용 인증 우회
   if (process.env.NODE_ENV === 'development' && process.env.SKIP_AUTH_DEV === 'true') {
